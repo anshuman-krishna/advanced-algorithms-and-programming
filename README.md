@@ -1,4 +1,4 @@
-# LAB_01 – Revision of Algorithms’ Fundamentals
+## LAB_01 – Revision of Algorithms’ Fundamentals
 
 ## Team Members
 - **YADAV Anshuman Krishna** – Exercise 4, 5 & 6  
@@ -99,12 +99,11 @@ This avoids nested loops and ensures linear time performance.
 
 ## Overall Reflection
 
-This lab helped revise fundamental algorithm concepts such as:
-
+This lab helped us revise fundamental algorithm concepts such as:
 - Mathematical digit manipulation  
 - Stack usage for pattern matching  
 - Sorting and interval merging  
 - In-place array operations  
 - Efficient use of hash tables  
 
-Different approaches were compared to better understand trade-offs between time complexity and memory usage.
+different approaches were compared to better understand trade-offs between time complexity and memory usage.

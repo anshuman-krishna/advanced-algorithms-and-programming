@@ -59,7 +59,7 @@ identical_A = {1, 2}
 identical_B = {1, 2}
 print(f"Identical Jaccard: {jaccard_similarity(identical_A, identical_B)}")
 
-# 4. edge casem empty sets
+# 4. edge case, empty sets
 empty_A = set()
 empty_B = set()
 print(f"Empty Set Jaccard: {jaccard_similarity(empty_A, empty_B)}")

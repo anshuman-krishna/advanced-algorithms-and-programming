@@ -1,9 +1,9 @@
-## LAB_01 – Revision of Algorithms’ Fundamentals
+## LAB_02 – Revision of Data Structure
 
 ## Team Members
-- **YADAV Anshuman Krishna** – Exercise 4, 5 & 6  
-- **MAHALINGAM Nithees** – Exercise 1, 2 & 3  
-- **SARAVANAN Arun Prasath** – Absent  
+- **YADAV Anshuman Krishna** – Exercise 2 & 4 
+- **MAHALINGAM Nithees** – Exercise 1  
+- **SARAVANAN Arun Prasath** – Exercise 3  
 
 ---
 

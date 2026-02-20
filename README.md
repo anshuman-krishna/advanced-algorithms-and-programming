@@ -1,4 +1,4 @@
-# LAB_02 – Revision of Data Structure
+## LAB_02 – Revision of Data Structure
 
 ## Team Members:
 - **YADAV Anshuman Krishna** – Exercise 2 & 4

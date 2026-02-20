@@ -1,9 +1,9 @@
-# Social Network Algorithms & Data Structures
+## LAB_02 – Revision of Data Structure
 
 ## Team Members
-- **YADAV Anshuman Krishna** – Exercise 2 & 4
-- **MAHALINGAM Nithees** – Exercise 1
-- **SARAVANAN Arun Prasath** – Exercise 3
+- **YADAV Anshuman Krishna** – Exercise 2 & 4 
+- **MAHALINGAM Nithees** – Exercise 1  
+- **SARAVANAN Arun Prasath** – Exercise 3  
 
 ---
 

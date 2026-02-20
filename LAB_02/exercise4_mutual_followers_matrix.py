@@ -62,6 +62,6 @@ print(f"Influence of User 2: {graph.calculate_influence(1)}")
 graph.follow(2, 2)
 print(f"Mutuals ignores self: {graph.find_mutual_follows()}")
 
-# 3. edge case: unfollowing
+# 3. edge case: unfollowing someone
 graph.unfollow(1, 0)
 print(f"Mutuals after unfollow: {graph.find_mutual_follows()}")

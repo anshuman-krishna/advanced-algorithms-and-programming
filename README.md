@@ -16,7 +16,7 @@
 
 ---
 
-# LAB 01: Revision of Algorithms Fundamentals
+## LAB 01: Revision of Algorithms Fundamentals
 
 ## Exercise 1: Integer Mirror
 We reversed an integer mathematically (`%`, `//`, `*`) without taking the easy route of converting it to a string. 
@@ -47,7 +47,7 @@ This lab was a great refresher on core algorithm concepts. We got hands-on exper
 
 ---
 
-# LAB 02: Social Network Algorithms & Data Structures
+## LAB 02: Social Network Algorithms & Data Structures
 
 ## Exercise 1: Friend Request Timeline
 We built a text parser that scans a message exactly once to count uppercase letters and urgency punctuation. Based on the ratios, it flags the message as "AGGRESSIVE", "URGENT", or "CALM".
@@ -70,7 +70,7 @@ We took basic mathematical structures and applied them to real social media feat
 
 ---
 
-# LAB 03: Advanced Data Structures (Linked Lists, Stacks, Queues)
+## LAB 03: Advanced Data Structures (Linked Lists, Stacks, Queues)
 
 ## Exercise 1: Social Media Story Feed
 We built a Doubly Linked List to power a bidirectional content feed. It lets us seamlessly swipe forward and backward, tracks view counts, and even reorders the entire feed by popularity using an in-place Bubble Sort.

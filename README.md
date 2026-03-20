@@ -1,91 +1,47 @@
-## Advanced Algorithms and Programming
+## LAB_04 - Recursive Algorithms & Divide and Conquer
 
-## Team Members & Contributions
-* **YADAV Anshuman Krishna**
-  * Lab 1: Exercises 4, 5, 6
-  * Lab 2: Exercises 2, 4
-  * Lab 3: Exercise 1
-* **MAHALINGAM Nithees**
-  * Lab 1: Exercises 1, 2, 3
-  * Lab 2: Exercise 1
-  * Lab 3: Exercise 2
-* **SARAVANAN Arun Prasath**
-  * Lab 1: Absent
-  * Lab 2: Exercise 3
-  * Lab 3: Exercise 3
+## Team Members:
+* **YADAV Anshuman Krishna** - Exercise 1
+* **MAHALINGAM Nithees** - Exercise 2
+* **SARAVANAN Arun Prasath** - Exercise 3
 
 ---
 
-## LAB 01: Revision of Algorithms Fundamentals
+## Exercise 1 - Recursive Comment Thread Traversal
 
-## Exercise 1: Integer Mirror
-We reversed an integer mathematically (`%`, `//`, `*`) without taking the easy route of converting it to a string. 
-* **Complexity:** Time O(d) where d is digits, Space O(1)
+We built a recursive system to handle deeply nested social media comment sections. 
+The algorithm navigates tree structures to display threads, count total likes, find the maximum reply depth, search for keywords, and perform cascading deletions to safely prune entire conversation branches.
 
-## Exercise 2: Balanced Symbol Checker
-We used a stack to check if brackets in a string are perfectly balanced. We pushed opening brackets onto the stack and popped them when finding a match, returning false if things did not line up.
-* **Complexity:** Time O(n), Space O(n)
-
-## Exercise 3: Merge Overlapping Intervals
-We sorted intervals by their start times and merged them in a single pass using the `max` function to handle overlapping ends.
-* **Complexity:** Time O(n log n), Space O(n)
-
-## Exercise 4: Polynomial Evaluation
-We applied Horner's Method to evaluate polynomials iteratively, which drastically cut down on unnecessary mathematical multiplications.
-* **Complexity:** Time O(n), Space O(1)
-
-## Exercise 5: Array Rotation Optimization
-We tested three rotation methods (temporary array, one-by-one, and reverse segments). The reverse method was the clear winner, performing the rotation in linear time without taking up extra memory.
-* **Complexity (Best):** Time O(n), Space O(1)
-
-## Exercise 6: First Unique Character Finder
-We built a hash table (dictionary) to count character frequencies. This let us find the first unique character in linear time instead of getting stuck in slow nested loops.
-* **Complexity:** Time O(n), Space O(k)
-
-## Lab 1 Reflection
-This lab was a great refresher on core algorithm concepts. We got hands-on experience balancing time complexity against memory usage, especially seeing how hash tables and in-place array tricks significantly speed up our code.
+### Complexity Summary
+* Time: O(N) to visit all comments in a thread
+* Space: O(D), where D is the maximum reply depth (stored on the system call stack)
 
 ---
 
-## LAB 02: Social Network Algorithms & Data Structures
+## Exercise 2 - Content Aggregation with Divide and Conquer
 
-## Exercise 1: Friend Request Timeline
-We built a text parser that scans a message exactly once to count uppercase letters and urgency punctuation. Based on the ratios, it flags the message as "AGGRESSIVE", "URGENT", or "CALM".
-* **Complexity:** Time O(N), Space O(1)
+We applied the Divide and Conquer technique to analyze post engagement data efficiently. 
+By recursively splitting arrays in half, we calculated maximum and average engagement scores, counted posts above specific thresholds, and sorted the feed using a custom Merge Sort. We also implemented a binary search style algorithm to efficiently find peak traffic hours.
 
-## Exercise 2: Mutual Friends Detection Using Sets
-We coded our own set operations (Intersection, Difference, Union) to find mutual friends and calculate Jaccard Similarity scores. We also added a feature to recommend 2nd-degree connections.
-* **Complexity:** Time O(m + n), Space O(m + n)
-
-## Exercise 3: Friend Recommendation by Common Interests
-We calculated Cosine Similarity scores between users based on a shared interest matrix. We then sorted the results to recommend new interests pulled from the top K closest matches.
-* **Complexity:** Time O(U * I + U log U), Space O(U + I)
-
-## Exercise 4: Mutual Followers Matrix
-We mapped a social network using a 2D boolean Adjacency Matrix. It is incredibly fast for checking specific mutual connections, but the massive grid of "False" values proved it is highly impractical for large user bases.
-* **Complexity:** Time O(N^2), Space O(N^2)
-
-## Lab 2 Reflection
-We took basic mathematical structures and applied them to real social media features. We learned firsthand how choosing the right data structure (like using Hash Sets over Matrices) makes or breaks a platform as the network scales.
+### Complexity Summary
+* Time: O(N log N) for the Merge Sort, and O(log N) for the peak hour search
+* Space: O(N) for the temporary arrays used during the merging process
 
 ---
 
-## LAB 03: Advanced Data Structures (Linked Lists, Stacks, Queues)
+## Exercise 3 - Converting Recursion to Iteration (Explicit Stacks)
 
-## Exercise 1: Social Media Story Feed
-We built a Doubly Linked List to power a bidirectional content feed. It lets us seamlessly swipe forward and backward, tracks view counts, and even reorders the entire feed by popularity using an in-place Bubble Sort.
-* **Complexity:** Navigation Time O(1), Sorting Time O(N^2), Space O(1)
+We took our recursive tree algorithms and rewrote them iteratively to make them production-safe. 
+By manually using a Stack data structure to flatten comment trees and count nodes, we completely removed our reliance on the system's fragile execution call stack.
 
-## Exercise 2: Activity Feed Processing
-We managed notifications and user history using a Queue (FIFO) for incoming alerts and a Stack (LIFO) to track recent user activities. We also added a priority queue feature for urgent alerts.
-* **Complexity:** Stack Operations Time O(1), Space O(N)
+### Complexity Summary
+* Time: O(N) to traverse the comments
+* Space: O(D) for the manual stack, but stored safely on the massive heap memory instead of the limited call stack
 
-## Exercise 3: Engagement-Based Priority Queue
-We created a custom Priority Queue using a Singly Linked List. Instead of sorting posts by time, it traverses the list upon insertion to rank posts dynamically based on a weighted engagement score (likes, comments, and shares).
-* **Complexity:** Insertion Time O(N), Space O(N)
-
-## Lab 3 Reflection & Project Integration
-We shifted to node-based structures, and these exercises directly inspired our upcoming semester project: a Pinterest-style platform. We plan to use Priority Queues to rank our trending feed, Doubly Linked Lists for seamless media swiping, and Stacks/Queues to handle our background notifications and "undo" features. 
-
-Even if we end up pivoting to a different application idea later, this core architectural foundation will carry over perfectly. We will always need efficient ways to rank content, navigate media, and process events!
 ---
+
+## Overall Reflection
+
+This lab showed us both the mathematical beauty and the hidden dangers of recursion. It handles tree structures like nested replies perfectly, but a thread that goes thousands of levels deep will quickly trigger a Stack Overflow and crash the server. 
+
+Learning to convert recursive logic into iterative stack loops was a game changer for writing scalable backend code. All of these exercises have given us the exact architectural foundation we need to safely manage infinitely nested data for our upcoming semester project.

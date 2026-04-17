@@ -2,7 +2,7 @@
 
 ## Team Members & Contributions
 * **YADAV Anshuman Krishna**: Exercise 1
-* **MAHALINGAM Nithees**: Exercise 2
+* **MAHALINGAM Nithees**: Exercise 2 & Final Integration
 * **SARAVANAN Arun Prasath**: Exercise 3
 
 ## Exercise 1: Spatial Splitting (Quadtrees)

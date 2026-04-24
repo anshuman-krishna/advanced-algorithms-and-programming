@@ -10,10 +10,11 @@ We implemented a recursive algorithm to divide a 2D space into smaller regions t
 * **Complexity:** Time O(N * 4^D) for our naive implementation, Space O(D) where D is the maximum recursion depth.
 * **Algorithmic Insight:** We realized that an unoptimized Quadtree wastes massive amounts of processing power by continually splitting empty space. Adding a condition to prune empty branches instantly is critical for real-world performance. We also noted that strict boundary definitions (using `<` instead of `<=`) are required to prevent counting overlapping points twice.
 
-## Exercise 2: Fractal Drawing & Recursive Shapes
-We explored recursion through geometric shapes by coding generators for the Sierpinski Triangle and fractal trees. We also wrote an algorithm to calculate the fractal dimension of an image using the box-counting method.
-* **Complexity:** O(3^depth) for the Sierpinski Triangle, and O(2^depth) for the fractal tree. Space complexity remains O(depth) for the execution stack.
-* **Algorithmic Insight:** Recursion perfectly maps to self-similar structures, but the exponential time complexity means we must strictly limit the maximum depth to prevent the application from freezing.
+## Exercise 2: Binary Heap – Trending Posts Feed
+We implemented a Max-Heap to simulate a real-time trending posts feed where posts are ranked dynamically based on likes. The system supports efficient insertion, updating likes, retrieving the most popular post, and displaying the top K trending posts without sorting the full dataset each time.
+* **Complexity:** push(), pop_max(), and update_likes() run in O(log n) due to heap reordering. peek_max() runs in O(1) since the highest-liked post is always at the root. get_top_k(k) runs in O(k log n) by extracting the maximum K times from a temporary heap.
+* **Algorithmic Insight:** A Max-Heap is ideal for live ranking systems because it avoids repeated full sorting of posts after every like update. By maintaining only local heap adjustments, it scales efficiently for large social media feeds with continuous engagement updates.
+* **Scalability Reflection:** Compared to sorted arrays (O(n) updates), heaps perform significantly better under heavy traffic. This makes them highly suitable for applications such as trending hashtags, video recommendations, breaking news feeds, and gaming leaderboards where rankings change frequently.
 
 ## Exercise 3: Procedural Generation
 We applied recursive patterns to procedural generation using the midpoint displacement algorithm. This allowed us to generate randomized terrain data and write a basic artifact detection script to flag harsh, unnatural edges in the data grid.

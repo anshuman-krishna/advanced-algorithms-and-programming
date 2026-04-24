@@ -9,7 +9,7 @@ class Trie:
     def __init__(self):
         self.root = TrieNode()
 
-    # Insert Username
+   
     def insert(self, username, user_id):
         node = self.root
         for ch in username:
@@ -19,7 +19,6 @@ class Trie:
         node.is_end = True
         node.user_id = user_id
 
-    # Search Username
     def search(self, username):
         node = self.root
         for ch in username:
@@ -27,8 +26,6 @@ class Trie:
                 return None
             node = node.children[ch]
         return node.user_id if node.is_end else None
-
-    # Check Prefix
     def starts_with(self, prefix):
         node = self.root
         for ch in prefix:
@@ -37,7 +34,6 @@ class Trie:
             node = node.children[ch]
         return True
 
-    # Autocomplete
     def autocomplete(self, prefix, max_results):
         results = []
         node = self.root
@@ -60,7 +56,7 @@ class Trie:
         for ch in node.children:
             self._collect_words(node.children[ch], current_word + ch, results, max_results)
 
-    # Delete Username
+   
     def delete(self, username):
         self._delete(self.root, username, 0)
 

@@ -1,0 +1,16 @@
+{
+  "expo": {
+    "name": "instagram clone",
+    "slug": "instagram-clone",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": { "supportsTablet": false },
+    "android": { "adaptiveIcon": { "backgroundColor": "#ffffff" } },
+    "web": { "bundler": "metro" }
+  }
+}

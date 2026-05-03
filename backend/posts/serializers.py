@@ -1,0 +1,71 @@
+from rest_framework import serializers
+
+from .models import Comment, Like, Post
+
+
+class AuthorMiniSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    username = serializers.CharField()
+    avatar = serializers.ImageField(allow_null=True)
+
+
+class PostSerializer(serializers.ModelSerializer):
+    author = AuthorMiniSerializer(read_only=True)
+    like_count = serializers.IntegerField(read_only=True)
+    comment_count = serializers.IntegerField(read_only=True)
+    is_liked = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Post
+        fields = (
+            "id",
+            "author",
+            "image",
+            "caption",
+            "location",
+            "latitude",
+            "longitude",
+            "like_count",
+            "comment_count",
+            "is_liked",
+            "created_at",
+        )
+        read_only_fields = ("id", "author", "created_at", "like_count", "comment_count", "is_liked")
+
+    def get_is_liked(self, obj):
+        request = self.context.get("request")
+        if request is None or not request.user.is_authenticated:
+            return False
+        # ref: lab 1 hash table style membership check, exists() uses a btree index lookup
+        return obj.likes.filter(user_id=request.user.id).exists()
+
+
+class LikeSerializer(serializers.ModelSerializer):
+    user_id = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = Like
+        fields = ("id", "user_id", "post", "created_at")
+        read_only_fields = ("id", "user_id", "created_at")
+
+
+class CommentSerializer(serializers.ModelSerializer):
+    author = AuthorMiniSerializer(read_only=True)
+    reply_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Comment
+        fields = (
+            "id",
+            "post",
+            "author",
+            "parent",
+            "content",
+            "is_deleted",
+            "reply_count",
+            "created_at",
+        )
+        read_only_fields = ("id", "author", "is_deleted", "reply_count", "created_at")
+
+    def get_reply_count(self, obj):
+        return obj.replies.count()

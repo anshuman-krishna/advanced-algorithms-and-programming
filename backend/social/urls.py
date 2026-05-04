@@ -2,9 +2,13 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
 from .views import (
+    CommunitiesView,
+    CommunityOfView,
     FollowViewSet,
     GraphStatsView,
+    NichePostsView,
     RelationshipView,
+    ShortestChainView,
     SuggestionsView,
     UserGraphView,
 )
@@ -26,4 +30,16 @@ urlpatterns = [
     ),
     path("suggestions/", SuggestionsView.as_view(), name="suggestions"),
     path("graph/stats/", GraphStatsView.as_view(), name="graph_stats"),
+    path("communities/", CommunitiesView.as_view(), name="communities"),
+    path(
+        "users/<str:identifier>/community/",
+        CommunityOfView.as_view(),
+        name="community_of",
+    ),
+    path(
+        "users/<str:identifier>/niche-posts/",
+        NichePostsView.as_view(),
+        name="niche_posts",
+    ),
+    path("shortest-chain/", ShortestChainView.as_view(), name="shortest_chain"),
 ]

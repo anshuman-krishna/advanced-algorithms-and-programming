@@ -86,6 +86,55 @@ def index_stats() -> dict:
     return ensure_index().stats()
 
 
+# graph traversals (lab 6 ex 2 dfs, ex 3 bfs) ---------------------------------
+
+def communities() -> List[List[int]]:
+    """ref: lab 6 ex 2 dfs find_connected_components."""
+    return ensure_graph().connected_components()
+
+
+def community_of(user_id: int) -> List[int]:
+    """ref: lab 6 ex 2 dfs scoped to a single user."""
+    return ensure_graph().component_of(user_id)
+
+
+def shortest_chain(source: int, target: int) -> List[int]:
+    """ref: lab 6 ex 3 bfs shortest_path. returns the chain as a list of user ids."""
+    return ensure_graph().shortest_chain(source, target)
+
+
+def bfs_distances(source: int, max_depth: int = None) -> Dict[int, int]:
+    """ref: lab 6 ex 3 bfs_with_distances."""
+    return ensure_graph().bfs_distances(source, max_depth=max_depth)
+
+
+def niche_posts(user_id: int, limit: int = 20) -> List[int]:
+    """
+    surface posts authored by users inside the same dfs community as user_id,
+    excluding people the user already follows.
+
+    ref: lab 6 ex 2 dfs community detection. claude.md phase 6 calls this out
+    as the "niche content" play: users inside small clusters get under-served
+    by the global trending heap, so we hand them post ids from their cluster.
+    """
+    g = ensure_graph()
+    component = set(g.component_of(user_id))
+    component.discard(user_id)
+    already_following = set(g.get_following(user_id))
+    candidate_authors = list(component - already_following)
+    if not candidate_authors:
+        return []
+    # local import keeps the algorithm helpers django-free
+    from posts.models import Post
+
+    return list(
+        Post.objects
+        .filter(author_id__in=candidate_authors)
+        .order_by("-created_at")
+        .values_list("id", flat=True)[:limit]
+    )
+
+
 def follow_user(follower_id: int, target_id: int) -> bool:
     """
     create the follow row and propagate to caches via signals.

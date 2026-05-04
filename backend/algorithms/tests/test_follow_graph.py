@@ -67,5 +67,59 @@ class FollowGraphTests(unittest.TestCase):
         self.assertNotIn(1, self.g.following)
 
 
+class FollowGraphTraversalTests(unittest.TestCase):
+    """ref: lab 6 ex 2 dfs connected components, lab 6 ex 3 bfs shortest path."""
+
+    def setUp(self):
+        # build two disjoint clusters: {1,2,3,4} and {10,11,12}, plus an isolate 99
+        self.g = FollowGraph()
+        for uid in [1, 2, 3, 4, 10, 11, 12, 99]:
+            self.g.add_user(uid)
+        # cluster a (chain 1->2->3->4)
+        for follower, target in [(1, 2), (2, 3), (3, 4)]:
+            self.g.add_edge(follower, target)
+        # cluster b (triangle 10-11-12)
+        for follower, target in [(10, 11), (11, 12), (12, 10)]:
+            self.g.add_edge(follower, target)
+
+    def test_connected_components_groups_clusters(self):
+        components = self.g.connected_components()
+        sizes = sorted(len(c) for c in components)
+        self.assertEqual(sizes, [1, 3, 4])
+        # largest first per the sort
+        self.assertEqual(len(components[0]), 4)
+        self.assertEqual(set(components[0]), {1, 2, 3, 4})
+
+    def test_component_of_returns_membership(self):
+        members = set(self.g.component_of(2))
+        self.assertEqual(members, {1, 2, 3, 4})
+        self.assertEqual(self.g.component_of(99), [99])
+        self.assertEqual(self.g.component_of(404), [])
+
+    def test_shortest_chain_basic(self):
+        chain = self.g.shortest_chain(1, 4)
+        self.assertEqual(chain, [1, 2, 3, 4])
+
+    def test_shortest_chain_self_returns_singleton(self):
+        self.assertEqual(self.g.shortest_chain(1, 1), [1])
+
+    def test_shortest_chain_disconnected_returns_empty(self):
+        self.assertEqual(self.g.shortest_chain(1, 12), [])
+
+    def test_shortest_chain_unknown_node_returns_empty(self):
+        self.assertEqual(self.g.shortest_chain(1, 404), [])
+
+    def test_bfs_distances_max_depth(self):
+        d = self.g.bfs_distances(1, max_depth=2)
+        # at depth 2 we reach node 3 but not 4
+        self.assertIn(3, d)
+        self.assertNotIn(4, d)
+        self.assertEqual(d[1], 0)
+
+    def test_bfs_distances_full(self):
+        d = self.g.bfs_distances(1)
+        self.assertEqual(d, {1: 0, 2: 1, 3: 2, 4: 3})
+
+
 if __name__ == "__main__":
     unittest.main()

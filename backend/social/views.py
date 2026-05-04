@@ -163,3 +163,91 @@ class GraphStatsView(APIView):
             "adjacency_list": services.graph_stats(),
             "user_bst": services.index_stats(),
         })
+
+
+class CommunitiesView(APIView):
+    """
+    GET /api/social/communities/
+
+    ref: claude.md phase 6. lab 6 ex 2 dfs connected components on the
+    undirected friendship view. returns clusters sorted by size desc.
+    """
+
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        components = services.communities()
+        return Response({
+            "count": len(components),
+            "components": [
+                {"size": len(c), "members": c} for c in components
+            ],
+        })
+
+
+class CommunityOfView(APIView):
+    """GET /api/social/users/<id|username>/community/."""
+
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, identifier):
+        user = _resolve_user(identifier)
+        members = services.community_of(user.id)
+        return Response({
+            "user_id": user.id,
+            "username": user.username,
+            "size": len(members),
+            "members": members,
+        })
+
+
+class ShortestChainView(APIView):
+    """
+    GET /api/social/shortest-chain/?from=<id|username>&to=<id|username>
+
+    ref: lab 6 ex 3 bfs shortest_path. returns [] if disconnected.
+    """
+
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        src_raw = request.query_params.get("from")
+        dst_raw = request.query_params.get("to")
+        if not src_raw or not dst_raw:
+            return Response({"detail": "from and to are required"}, status=400)
+        src = _resolve_user(src_raw)
+        dst = _resolve_user(dst_raw)
+        chain = services.shortest_chain(src.id, dst.id)
+        users_by_id = {u.id: u for u in User.objects.filter(id__in=chain)}
+        return Response({
+            "from": src.id,
+            "to": dst.id,
+            "length": max(0, len(chain) - 1),
+            "chain": [
+                {"id": uid, "username": users_by_id.get(uid).username if users_by_id.get(uid) else None}
+                for uid in chain
+            ],
+        })
+
+
+class NichePostsView(APIView):
+    """
+    GET /api/social/users/<id|username>/niche-posts/?limit=
+
+    ref: claude.md phase 6 dfs community detection -> niche content.
+    """
+
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, identifier):
+        user = _resolve_user(identifier)
+        try:
+            limit = max(1, min(int(request.query_params.get("limit", 20)), 100))
+        except ValueError:
+            limit = 20
+        post_ids = services.niche_posts(user.id, limit=limit)
+        return Response({
+            "user_id": user.id,
+            "limit": limit,
+            "post_ids": post_ids,
+        })

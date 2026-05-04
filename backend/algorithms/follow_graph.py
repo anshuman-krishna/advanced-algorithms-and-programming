@@ -13,7 +13,8 @@ adjacency list answer is consistent across requests in a single process.
 from __future__ import annotations
 
 import threading
-from typing import Dict, Iterable, List, Set, Tuple
+from collections import deque
+from typing import Dict, Iterable, List, Optional, Set, Tuple
 
 
 class FollowGraph:
@@ -109,6 +110,115 @@ class FollowGraph:
         for source, targets in self.following.items():
             for target in targets:
                 yield source, target
+
+    # undirected friendship view ------------------------------------------------
+    def neighbors_undirected(self, user_id: int) -> Set[int]:
+        """
+        union of followers and following for the user.
+
+        ref: lab 6 ex 3 add_friendship modeled friendship as undirected, so the
+        bfs / dfs traversals for "friend chain" and "communities" use this view.
+        """
+        return self.following.get(user_id, set()) | self.followers.get(user_id, set())
+
+    # dfs (lab 6 ex 2) ---------------------------------------------------------
+    def connected_components(self) -> List[List[int]]:
+        """
+        iterative dfs over the undirected friendship view.
+
+        ref: lab 6 ex 2 find_connected_components. returns a list of component
+        membership lists, sorted by size descending so the largest cluster
+        sits first (handy for the niche-content endpoint).
+        """
+        visited: Set[int] = set()
+        components: List[List[int]] = []
+        for node in self.following:
+            if node in visited:
+                continue
+            stack: List[int] = [node]
+            component: List[int] = []
+            while stack:
+                cur = stack.pop()
+                if cur in visited:
+                    continue
+                visited.add(cur)
+                component.append(cur)
+                for neighbor in self.neighbors_undirected(cur):
+                    if neighbor not in visited:
+                        stack.append(neighbor)
+            components.append(component)
+        components.sort(key=len, reverse=True)
+        return components
+
+    def component_of(self, user_id: int) -> List[int]:
+        """ref: lab 6 ex 2 dfs_iterative scoped to a single seed."""
+        if user_id not in self.following:
+            return []
+        visited: Set[int] = set()
+        stack: List[int] = [user_id]
+        out: List[int] = []
+        while stack:
+            cur = stack.pop()
+            if cur in visited:
+                continue
+            visited.add(cur)
+            out.append(cur)
+            for neighbor in self.neighbors_undirected(cur):
+                if neighbor not in visited:
+                    stack.append(neighbor)
+        return out
+
+    # bfs (lab 6 ex 3) ---------------------------------------------------------
+    def shortest_chain(self, source: int, target: int) -> List[int]:
+        """
+        breadth first search over the undirected friendship view.
+
+        ref: lab 6 ex 3 shortest_path. returns [] if there is no chain, or the
+        list of user ids from source to target (inclusive on both ends).
+        """
+        if source == target:
+            return [source] if source in self.following else []
+        if source not in self.following or target not in self.following:
+            return []
+        parents: Dict[int, Optional[int]] = {source: None}
+        queue: deque[int] = deque([source])
+        while queue:
+            node = queue.popleft()
+            if node == target:
+                break
+            for neighbor in self.neighbors_undirected(node):
+                if neighbor in parents:
+                    continue
+                parents[neighbor] = node
+                queue.append(neighbor)
+        if target not in parents:
+            return []
+        # walk back from target to source via parent pointers
+        chain: List[int] = []
+        cursor: Optional[int] = target
+        while cursor is not None:
+            chain.append(cursor)
+            cursor = parents[cursor]
+        chain.reverse()
+        return chain
+
+    def bfs_distances(self, source: int, max_depth: Optional[int] = None) -> Dict[int, int]:
+        """ref: lab 6 ex 3 bfs_with_distances."""
+        if source not in self.following:
+            return {}
+        distances: Dict[int, int] = {source: 0}
+        queue: deque[int] = deque([source])
+        while queue:
+            node = queue.popleft()
+            depth = distances[node]
+            if max_depth is not None and depth >= max_depth:
+                continue
+            for neighbor in self.neighbors_undirected(node):
+                if neighbor in distances:
+                    continue
+                distances[neighbor] = depth + 1
+                queue.append(neighbor)
+        return distances
 
     def hydrate(self, user_ids: Iterable[int], edges: Iterable[Tuple[int, int]]) -> None:
         with self._lock:

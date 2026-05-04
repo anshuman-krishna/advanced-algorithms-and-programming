@@ -76,4 +76,41 @@ export const api = {
     request(`/api/reels/${postId}/view/`, { method: 'POST' }),
   reelsMostViewed: () => request('/api/reels/most-viewed/'),
   reelsStats: () => request('/api/reels/stats/'),
+
+  // phase 6: analytics (lab 8 ex 3 segment tree)
+  likesRange: (identifier, from, to) => {
+    const qs = new URLSearchParams();
+    if (from) qs.set('from', from);
+    if (to) qs.set('to', to);
+    return request(`/api/analytics/users/${identifier}/likes-range/?${qs.toString()}`);
+  },
+  likesSeries: (identifier) =>
+    request(`/api/analytics/users/${identifier}/likes-series/`),
+  analyticsStats: () => request('/api/analytics/stats/'),
+
+  // phase 6: geo (lab 7 ex 1 quadtree)
+  geoNearby: (lat, lng, radius = 5, limit = 25) =>
+    request(
+      `/api/geo/nearby/?lat=${lat}&lng=${lng}&radius=${radius}&limit=${limit}`,
+    ),
+  geoBbox: (minLat, minLng, maxLat, maxLng, limit = 100) =>
+    request(
+      `/api/geo/bbox/?min_lat=${minLat}&min_lng=${minLng}` +
+        `&max_lat=${maxLat}&max_lng=${maxLng}&limit=${limit}`,
+    ),
+  geoNearest: (lat, lng, k = 5) =>
+    request(`/api/geo/nearest/?lat=${lat}&lng=${lng}&k=${k}`),
+  geoStats: () => request('/api/geo/stats/'),
+
+  // phase 6: social graph traversals (lab 6 ex 2 + ex 3)
+  communities: () => request('/api/social/communities/'),
+  communityOf: (identifier) =>
+    request(`/api/social/users/${identifier}/community/`),
+  shortestChain: (fromId, toId) =>
+    request(
+      `/api/social/shortest-chain/?from=${encodeURIComponent(fromId)}` +
+        `&to=${encodeURIComponent(toId)}`,
+    ),
+  nichePosts: (identifier, limit = 20) =>
+    request(`/api/social/users/${identifier}/niche-posts/?limit=${limit}`),
 };

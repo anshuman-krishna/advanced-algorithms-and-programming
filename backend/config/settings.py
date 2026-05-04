@@ -34,6 +34,7 @@ INSTALLED_APPS = [
     "notifications",
     "reels",
     "analytics",
+    "geo",
 ]
 
 MIDDLEWARE = [

@@ -96,3 +96,39 @@ class Comment(models.Model):
 
     def __str__(self):
         return f"comment {self.pk} on post {self.post_id}"
+
+    @property
+    def like_count(self):
+        return self.comment_likes.count()
+
+
+class CommentLike(models.Model):
+    """
+    one row per (user, comment) so total_likes on a thread is real.
+
+    ref: lab 4 ex 1 CommentNode.likes attribute. the recursive aggregator
+    sums these counts per subtree.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="liked_comments",
+    )
+    comment = models.ForeignKey(
+        Comment,
+        on_delete=models.CASCADE,
+        related_name="comment_likes",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["user", "comment"], name="unique_user_comment_like"),
+        ]
+        indexes = [
+            models.Index(fields=["comment", "-created_at"]),
+        ]
+
+    def __str__(self):
+        return f"{self.user_id} liked comment {self.comment_id}"

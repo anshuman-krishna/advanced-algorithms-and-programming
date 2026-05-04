@@ -52,6 +52,8 @@ class LikeSerializer(serializers.ModelSerializer):
 class CommentSerializer(serializers.ModelSerializer):
     author = AuthorMiniSerializer(read_only=True)
     reply_count = serializers.SerializerMethodField()
+    like_count = serializers.IntegerField(read_only=True)
+    is_liked = serializers.SerializerMethodField()
 
     class Meta:
         model = Comment
@@ -63,9 +65,20 @@ class CommentSerializer(serializers.ModelSerializer):
             "content",
             "is_deleted",
             "reply_count",
+            "like_count",
+            "is_liked",
             "created_at",
         )
-        read_only_fields = ("id", "author", "is_deleted", "reply_count", "created_at")
+        read_only_fields = (
+            "id", "author", "is_deleted", "reply_count",
+            "like_count", "is_liked", "created_at",
+        )
 
     def get_reply_count(self, obj):
         return obj.replies.count()
+
+    def get_is_liked(self, obj):
+        request = self.context.get("request")
+        if request is None or not request.user.is_authenticated:
+            return False
+        return obj.comment_likes.filter(user_id=request.user.id).exists()

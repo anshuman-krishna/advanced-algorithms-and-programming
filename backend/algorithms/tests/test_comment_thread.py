@@ -131,5 +131,47 @@ class CommentThreadTests(unittest.TestCase):
         self.assertEqual(roots[0].replies[0].replies[0].comment_id, 3)
 
 
+class DeepThreadTests(unittest.TestCase):
+    """ref: lab 4 ex 3 explicit stack to avoid blowing python's recursion limit."""
+
+    def _build_chain(self, depth: int) -> CommentNode:
+        root = CommentNode(0, 1, "root", likes=1)
+        cursor = root
+        for i in range(1, depth):
+            child = CommentNode(i, 1, f"reply {i}", likes=1)
+            cursor.add_reply(child)
+            cursor = child
+        return root
+
+    def test_iterative_handles_deeper_than_recursion_limit(self):
+        # build a 4000-deep chain. count_total_comments would blow the default
+        # recursion limit on most pythons; the iterative variant must not.
+        root = self._build_chain(4000)
+        self.assertEqual(count_iterative(root), 4000)
+
+    def test_flatten_iterative_returns_full_chain(self):
+        root = self._build_chain(2500)
+        ids = [n.comment_id for n in flatten_iterative(root)]
+        self.assertEqual(len(ids), 2500)
+        self.assertEqual(ids[0], 0)
+        self.assertEqual(ids[-1], 2499)
+
+
+class OutOfOrderBuildTests(unittest.TestCase):
+    def test_rows_arrive_out_of_order(self):
+        rows = [
+            {"id": 3, "user_id": 1, "content": "child", "parent_id": 1,
+             "likes": 0, "is_deleted": False, "created_at": 3},
+            {"id": 1, "user_id": 1, "content": "root", "parent_id": None,
+             "likes": 0, "is_deleted": False, "created_at": 1},
+            {"id": 2, "user_id": 1, "content": "earlier child", "parent_id": 1,
+             "likes": 0, "is_deleted": False, "created_at": 2},
+        ]
+        roots = build_thread(rows)
+        self.assertEqual(len(roots), 1)
+        # children must be sorted by created_at regardless of input order
+        self.assertEqual([c.comment_id for c in roots[0].replies], [2, 3])
+
+
 if __name__ == "__main__":
     unittest.main()

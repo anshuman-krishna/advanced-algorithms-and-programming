@@ -4,7 +4,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from . import services_threads
-from .models import Comment, Like, Post
+from .models import Comment, CommentLike, Like, Post
 from .permissions import IsAuthorOrReadOnly
 from .serializers import CommentSerializer, PostSerializer
 
@@ -68,6 +68,44 @@ class PostViewSet(viewsets.ModelViewSet):
         post = self.get_object()
         return Response({"post_id": post.id, **services_threads.thread_metrics(post.id)})
 
+    @action(detail=True, methods=["get"], url_path="thread-search")
+    def thread_search(self, request, pk=None):
+        """
+        recursive search across the thread.
+
+        ref: lab 4 ex 1 search_by_user, contains_keyword. accepts ?q=<keyword>
+        and/or ?user_id=<id>; if both are passed we union the matches.
+        """
+        post = self.get_object()
+        keyword = request.query_params.get("q", "").strip()
+        user_id_raw = request.query_params.get("user_id")
+        results = []
+        if keyword:
+            results.extend(services_threads.search_thread_by_keyword(post.id, keyword))
+        if user_id_raw:
+            try:
+                results.extend(services_threads.search_thread_by_user(post.id, int(user_id_raw)))
+            except ValueError:
+                return Response({"detail": "user_id must be an integer"}, status=400)
+        # de-dup by comment id while preserving order
+        seen = set()
+        deduped = []
+        for r in results:
+            if r["id"] in seen:
+                continue
+            seen.add(r["id"])
+            deduped.append(r)
+        return Response({"post_id": post.id, "results": deduped})
+
+    @action(detail=True, methods=["get"], url_path="thread-depth")
+    def thread_depth(self, request, pk=None):
+        """ref: lab 4 ex 1 find_deepest_reply across roots."""
+        post = self.get_object()
+        return Response({
+            "post_id": post.id,
+            "max_depth": services_threads.deepest_branch_depth(post.id),
+        })
+
 
 class CommentViewSet(viewsets.ModelViewSet):
     """
@@ -92,3 +130,19 @@ class CommentViewSet(viewsets.ModelViewSet):
         instance.is_deleted = True
         instance.content = ""
         instance.save(update_fields=["is_deleted", "content"])
+
+    @action(detail=True, methods=["post"], permission_classes=[permissions.IsAuthenticated])
+    def like(self, request, pk=None):
+        """ref: lab 4 ex 1 CommentNode.likes. one row per (user, comment)."""
+        comment = self.get_object()
+        _, created = CommentLike.objects.get_or_create(user=request.user, comment=comment)
+        return Response(
+            {"liked": True, "like_count": comment.like_count, "created": created},
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+        )
+
+    @action(detail=True, methods=["post"], permission_classes=[permissions.IsAuthenticated])
+    def unlike(self, request, pk=None):
+        comment = self.get_object()
+        deleted, _ = CommentLike.objects.filter(user=request.user, comment=comment).delete()
+        return Response({"liked": False, "like_count": comment.like_count, "removed": deleted})

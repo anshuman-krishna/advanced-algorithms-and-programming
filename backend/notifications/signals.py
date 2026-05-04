@@ -7,7 +7,7 @@ ref: claude.md phase 5. lab 3 ex 2 NotificationQueue.enqueue / priority_enqueue.
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
-from posts.models import Comment, Like
+from posts.models import Comment, CommentLike, Like
 from social.models import Follow
 
 from . import services
@@ -58,4 +58,18 @@ def on_follow_created(sender, instance, created, **kwargs):
         recipient_id=instance.following_id,
         actor_id=instance.follower_id,
         kind="follow",
+    )
+
+
+@receiver(post_save, sender=CommentLike)
+def on_comment_like_created(sender, instance, created, **kwargs):
+    """ref: lab 3 ex 2 enqueue. comment author gets notified when liked."""
+    if not created:
+        return
+    services.enqueue_event(
+        recipient_id=instance.comment.author_id,
+        actor_id=instance.user_id,
+        kind="like",
+        post_id=instance.comment.post_id,
+        comment_id=instance.comment_id,
     )

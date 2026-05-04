@@ -32,6 +32,7 @@ INSTALLED_APPS = [
     "feed",
     "search",
     "notifications",
+    "reels",
     "analytics",
 ]
 

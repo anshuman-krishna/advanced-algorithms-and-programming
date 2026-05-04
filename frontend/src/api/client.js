@@ -35,4 +35,45 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ username, password }),
     }),
+
+  // phase 5: comment threads (lab 4)
+  thread: (postId, prune = true) =>
+    request(`/api/posts/posts/${postId}/thread/?prune=${prune ? 1 : 0}`),
+  threadStats: (postId) => request(`/api/posts/posts/${postId}/thread-stats/`),
+  threadDepth: (postId) => request(`/api/posts/posts/${postId}/thread-depth/`),
+  threadSearch: (postId, q, userId) => {
+    const qs = new URLSearchParams();
+    if (q) qs.set('q', q);
+    if (userId) qs.set('user_id', String(userId));
+    return request(`/api/posts/posts/${postId}/thread-search/?${qs.toString()}`);
+  },
+  createComment: (postId, content, parentId = null) =>
+    request('/api/posts/comments/', {
+      method: 'POST',
+      body: JSON.stringify({ post: postId, parent: parentId, content }),
+    }),
+  deleteComment: (id) => request(`/api/posts/comments/${id}/`, { method: 'DELETE' }),
+  likeComment: (id) => request(`/api/posts/comments/${id}/like/`, { method: 'POST' }),
+  unlikeComment: (id) => request(`/api/posts/comments/${id}/unlike/`, { method: 'POST' }),
+
+  // phase 5: notifications (lab 3 ex 2)
+  listNotifications: () => request('/api/notifications/'),
+  unreadCount: () => request('/api/notifications/unread-count/'),
+  markNotificationsRead: () =>
+    request('/api/notifications/mark_all_read/', { method: 'POST' }),
+  notificationsQueueStats: () => request('/api/notifications/queue/stats/'),
+  drainNotifications: () =>
+    request('/api/notifications/queue/stats/', { method: 'POST' }),
+
+  // phase 5: reels (lab 3 ex 1 dll)
+  reelsPage: (cursor, direction = 'next', limit = 5) => {
+    const qs = new URLSearchParams({ direction, limit: String(limit) });
+    if (cursor != null) qs.set('cursor', String(cursor));
+    return request(`/api/reels/page/?${qs.toString()}`);
+  },
+  reelsAround: (postId, k = 3) => request(`/api/reels/around/${postId}/?k=${k}`),
+  reelsMarkViewed: (postId) =>
+    request(`/api/reels/${postId}/view/`, { method: 'POST' }),
+  reelsMostViewed: () => request('/api/reels/most-viewed/'),
+  reelsStats: () => request('/api/reels/stats/'),
 };

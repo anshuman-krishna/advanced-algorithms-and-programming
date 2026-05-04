@@ -1,21 +1,28 @@
 import React, { useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import HomeScreen from './src/screens/HomeScreen';
 import TrendingScreen from './src/screens/TrendingScreen';
 import SearchScreen from './src/screens/SearchScreen';
+import ReelsScreen from './src/screens/ReelsScreen';
+import NotificationsScreen from './src/screens/NotificationsScreen';
+import ThreadScreen from './src/screens/ThreadScreen';
 import { colors } from './src/theme/colors';
 
-const TABS = ['home', 'trending', 'search'];
+const TABS = ['home', 'reels', 'trending', 'search', 'notifs', 'thread'];
 
 export default function App() {
   const [tab, setTab] = useState('home');
   return (
     <SafeAreaProvider>
       <SafeAreaView style={styles.root}>
-        <View style={styles.tabbar}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.tabbar}
+        >
           {TABS.map((name) => (
             <Pressable
               key={name}
@@ -27,10 +34,13 @@ export default function App() {
               </Text>
             </Pressable>
           ))}
-        </View>
+        </ScrollView>
         {tab === 'home' && <HomeScreen />}
+        {tab === 'reels' && <ReelsScreen />}
         {tab === 'trending' && <TrendingScreen />}
         {tab === 'search' && <SearchScreen />}
+        {tab === 'notifs' && <NotificationsScreen />}
+        {tab === 'thread' && <ThreadScreen />}
         <StatusBar style="dark" />
       </SafeAreaView>
     </SafeAreaProvider>
@@ -44,7 +54,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
     borderBottomWidth: 1,
   },
-  tab: { flex: 1, paddingVertical: 12, alignItems: 'center' },
+  tab: { paddingVertical: 12, paddingHorizontal: 18, alignItems: 'center' },
   tabActive: { borderBottomColor: colors.primary, borderBottomWidth: 2 },
   tabText: { color: colors.muted },
   tabTextActive: { color: colors.text, fontWeight: '600' },

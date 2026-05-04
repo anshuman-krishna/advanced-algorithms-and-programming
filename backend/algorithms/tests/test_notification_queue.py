@@ -67,5 +67,44 @@ class NotificationQueueTests(unittest.TestCase):
         self.assertEqual(self.q.stats(), {"pending": 0, "processed": 0})
 
 
+class NotificationQueueConcurrencyTests(unittest.TestCase):
+    def test_concurrent_enqueue_preserves_count(self):
+        import threading
+
+        q = NotificationQueue()
+
+        def worker():
+            for _ in range(200):
+                q.enqueue({"x": 1})
+
+        threads = [threading.Thread(target=worker) for _ in range(4)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        self.assertEqual(len(q), 800)
+
+    def test_priority_then_normal_order(self):
+        q = NotificationQueue()
+        q.enqueue({"id": 1})
+        q.enqueue({"id": 2})
+        q.priority_enqueue({"id": "p1"})
+        q.priority_enqueue({"id": "p2"})
+        # priority is a stack onto the front: p2 then p1 then 1 then 2
+        ids = []
+        while True:
+            item = q.dequeue()
+            if item is None:
+                break
+            ids.append(item["id"])
+        self.assertEqual(ids, ["p2", "p1", 1, 2])
+
+    def test_batch_process_with_k_zero_is_noop(self):
+        q = NotificationQueue()
+        q.enqueue({"id": 1})
+        self.assertEqual(q.batch_process(0), [])
+        self.assertEqual(len(q), 1)
+
+
 if __name__ == "__main__":
     unittest.main()

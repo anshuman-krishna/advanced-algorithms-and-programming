@@ -105,5 +105,53 @@ class DoublyLinkedListTests(unittest.TestCase):
         self.assertEqual(self.dll.current.key, 7)
 
 
+class DoublyLinkedListEdgeCases(unittest.TestCase):
+    def test_empty_list_navigation_returns_none(self):
+        dll = DoublyLinkedList()
+        self.assertIsNone(dll.move_forward())
+        self.assertIsNone(dll.move_backward())
+        self.assertIsNone(dll.most_viewed())
+        self.assertEqual(dll.slice_around_cursor(3), [])
+        nodes, cursor = dll.page(None, "next", 5)
+        self.assertEqual(nodes, [])
+        self.assertIsNone(cursor)
+
+    def test_remove_unknown_returns_false(self):
+        dll = DoublyLinkedList()
+        dll.append(1)
+        self.assertFalse(dll.remove(99))
+
+    def test_idempotent_append_refreshes_payload(self):
+        dll = DoublyLinkedList()
+        dll.append(1, {"caption": "old"})
+        dll.append(1, {"caption": "new"})
+        self.assertEqual(dll.size, 1)
+        self.assertEqual(dll.head.payload["caption"], "new")
+
+    def test_concurrent_append_does_not_corrupt_index(self):
+        import threading
+
+        dll = DoublyLinkedList()
+
+        def worker(start):
+            for i in range(start, start + 100):
+                dll.append(i, {"i": i})
+
+        threads = [threading.Thread(target=worker, args=(s,)) for s in (0, 100, 200)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        self.assertEqual(dll.size, 300)
+        # walking from head must visit exactly size nodes (no orphaned chains)
+        seen = set()
+        cursor = dll.head
+        while cursor is not None:
+            seen.add(cursor.key)
+            cursor = cursor.next
+        self.assertEqual(len(seen), 300)
+
+
 if __name__ == "__main__":
     unittest.main()

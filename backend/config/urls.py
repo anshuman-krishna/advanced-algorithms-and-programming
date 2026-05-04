@@ -13,6 +13,7 @@ urlpatterns = [
     path("api/feed/", include("feed.urls")),
     path("api/search/", include("search.urls")),
     path("api/notifications/", include("notifications.urls")),
+    path("api/reels/", include("reels.urls")),
 ]
 
 if settings.DEBUG:

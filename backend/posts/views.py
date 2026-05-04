@@ -3,6 +3,7 @@ from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
+from . import services_threads
 from .models import Comment, Like, Post
 from .permissions import IsAuthorOrReadOnly
 from .serializers import CommentSerializer, PostSerializer
@@ -40,13 +41,32 @@ class PostViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["get"])
     def comments(self, request, pk=None):
-        """
-        flat list of top level comments. nested traversal lives in phase 5.
-        """
+        """flat list of top level comments. nested traversal lives in `thread`."""
         post = self.get_object()
         top_level = post.comments.filter(parent__isnull=True).select_related("author")
         serializer = CommentSerializer(top_level, many=True, context={"request": request})
         return Response(serializer.data)
+
+    @action(detail=True, methods=["get"])
+    def thread(self, request, pk=None):
+        """
+        full nested comment thread.
+
+        ref: claude.md phase 5. lab 4 ex 1 recursive traversal, ex 2 aggregation,
+        ex 3 explicit stack hint via ensure_recursion_limit.
+        """
+        post = self.get_object()
+        prune = request.query_params.get("prune", "1") not in ("0", "false", "False")
+        return Response({
+            "post_id": post.id,
+            "results": services_threads.thread_for_post(post.id, prune=prune),
+        })
+
+    @action(detail=True, methods=["get"], url_path="thread-stats")
+    def thread_stats(self, request, pk=None):
+        """count, max depth, total likes for the thread (lab 4 ex 1 + ex 2 aggregations)."""
+        post = self.get_object()
+        return Response({"post_id": post.id, **services_threads.thread_metrics(post.id)})
 
 
 class CommentViewSet(viewsets.ModelViewSet):

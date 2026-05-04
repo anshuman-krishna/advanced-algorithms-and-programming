@@ -10,6 +10,9 @@ urlpatterns = [
     path("api/accounts/", include("accounts.urls")),
     path("api/posts/", include("posts.urls")),
     path("api/social/", include("social.urls")),
+    path("api/feed/", include("feed.urls")),
+    path("api/search/", include("search.urls")),
+    path("api/notifications/", include("notifications.urls")),
 ]
 
 if settings.DEBUG:

@@ -53,6 +53,8 @@ backend/                 django project
   search/                inverted index, tries, recommender, category tree
   notifications/         lab 3 queue persisted into Notification rows
   reels/                 dll backed reels cursor + view tracking
+  analytics/             lab 8 segment tree per user, range likes endpoints
+  geo/                   lab 7 quadtree, nearby / bbox / nearest endpoints
   config/                django settings and root urls
   manage.py
 frontend/                expo react native app
@@ -83,12 +85,14 @@ pip install -r requirements.txt
 python manage.py migrate
 python manage.py seed_demo
 python manage.py seed_categories
+python manage.py seed_geo
 python manage.py rebuild_search_index
 python manage.py warm_reels
 ```
 
 at this point we have five users, a handful of posts, a follow graph, the
-explore tree, the inverted index hot, and the reels doubly linked list warm.
+explore tree, the inverted index hot, the reels doubly linked list warm, and
+geo coordinates attached to every demo post so the quadtree returns real data.
 
 ### 3. start the api
 
@@ -149,6 +153,9 @@ we expect every test to be green before merging.
 a few management commands we use during development and demos:
 
 - `python manage.py seed_demo` rebuilds the demo users, posts, and follows.
+- `python manage.py seed_categories` builds the lab 5 explore taxonomy.
+- `python manage.py seed_geo` round-robins city coordinates onto demo posts
+  so the lab 7 quadtree has something to query.
 - `python manage.py rebuild_search_index` resets the inverted index, user
   trie, and hashtag trie from the database.
 - `python manage.py warm_reels --window 200` rehydrates the reels dll.

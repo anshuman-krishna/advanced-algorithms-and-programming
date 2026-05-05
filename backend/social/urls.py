@@ -18,19 +18,11 @@ router.register(r"follows", FollowViewSet, basename="follow")
 
 urlpatterns = [
     path("", include(router.urls)),
-    path(
-        "users/<str:identifier>/<str:kind>/",
-        UserGraphView.as_view(),
-        name="user_graph",
-    ),
-    path(
-        "relationship/<str:identifier>/<str:other>/",
-        RelationshipView.as_view(),
-        name="relationship",
-    ),
+    # specific routes must come before the wildcard <str:kind> below
+    path("communities/", CommunitiesView.as_view(), name="communities"),
+    path("shortest-chain/", ShortestChainView.as_view(), name="shortest_chain"),
     path("suggestions/", SuggestionsView.as_view(), name="suggestions"),
     path("graph/stats/", GraphStatsView.as_view(), name="graph_stats"),
-    path("communities/", CommunitiesView.as_view(), name="communities"),
     path(
         "users/<str:identifier>/community/",
         CommunityOfView.as_view(),
@@ -41,5 +33,14 @@ urlpatterns = [
         NichePostsView.as_view(),
         name="niche_posts",
     ),
-    path("shortest-chain/", ShortestChainView.as_view(), name="shortest_chain"),
+    path(
+        "users/<str:identifier>/<str:kind>/",
+        UserGraphView.as_view(),
+        name="user_graph",
+    ),
+    path(
+        "relationship/<str:identifier>/<str:other>/",
+        RelationshipView.as_view(),
+        name="relationship",
+    ),
 ]

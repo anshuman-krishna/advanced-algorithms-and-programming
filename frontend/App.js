@@ -9,9 +9,22 @@ import SearchScreen from './src/screens/SearchScreen';
 import ReelsScreen from './src/screens/ReelsScreen';
 import NotificationsScreen from './src/screens/NotificationsScreen';
 import ThreadScreen from './src/screens/ThreadScreen';
+import NearbyScreen from './src/screens/NearbyScreen';
+import AnalyticsScreen from './src/screens/AnalyticsScreen';
+import CommunitiesScreen from './src/screens/CommunitiesScreen';
 import { colors } from './src/theme/colors';
 
-const TABS = ['home', 'reels', 'trending', 'search', 'notifs', 'thread'];
+const TABS = [
+  'home',
+  'reels',
+  'trending',
+  'search',
+  'notifs',
+  'thread',
+  'nearby',
+  'stats',
+  'graph',
+];
 
 export default function App() {
   const [tab, setTab] = useState('home');
@@ -41,6 +54,9 @@ export default function App() {
         {tab === 'search' && <SearchScreen />}
         {tab === 'notifs' && <NotificationsScreen />}
         {tab === 'thread' && <ThreadScreen />}
+        {tab === 'nearby' && <NearbyScreen />}
+        {tab === 'stats' && <AnalyticsScreen />}
+        {tab === 'graph' && <CommunitiesScreen />}
         <StatusBar style="dark" />
       </SafeAreaView>
     </SafeAreaProvider>

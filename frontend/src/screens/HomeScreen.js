@@ -1,12 +1,30 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
+// home feed. story strip on top, gradient empty state, faint section dividers.
+// the top bar carries the wordmark in the brand gradient and a thin animated
+// progress bar for refresh activity.
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  FlatList,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import { api } from '../api/client';
+import AvatarRing from '../components/AvatarRing';
+import EmptyState from '../components/EmptyState';
+import GradientProgress from '../components/GradientProgress';
+import GradientText from '../components/GradientText';
 import PostCard from '../components/PostCard';
-import { colors } from '../theme/colors';
+import ScreenContainer from '../components/ScreenContainer';
+import SectionDivider from '../components/SectionDivider';
+import { colors, spacing, typography } from '../theme';
 
 export default function HomeScreen() {
   const [posts, setPosts] = useState([]);
+  const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -15,7 +33,6 @@ export default function HomeScreen() {
     setError(null);
     try {
       const data = await api.listPosts();
-      // drf paginated payload exposes results
       setPosts(data.results ?? data);
     } catch (err) {
       setError(err.message);
@@ -24,41 +41,131 @@ export default function HomeScreen() {
     }
   }, []);
 
+  const loadStories = useCallback(async () => {
+    try {
+      const u = await api.listUsers();
+      setUsers((u.results ?? u).slice(0, 12));
+    } catch {
+      // story rail is decorative; failing here should not break the feed
+    }
+  }, []);
+
   useEffect(() => {
     load();
-  }, [load]);
+    loadStories();
+  }, [load, loadStories]);
+
+  const stories = useMemo(() => users, [users]);
 
   return (
-    <View style={styles.container}>
+    <ScreenContainer padded={false}>
       <View style={styles.topBar}>
-        <Text style={styles.title}>instagram clone</Text>
+        <GradientText style={[typography.display, styles.wordmark]}>
+          instagram
+        </GradientText>
       </View>
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      <GradientProgress active={loading} />
       <FlatList
         data={posts}
         keyExtractor={(item) => String(item.id)}
         renderItem={({ item }) => <PostCard post={item} />}
-        refreshControl={<RefreshControl refreshing={loading} onRefresh={load} />}
+        ItemSeparatorComponent={() => <SectionDivider inset={spacing.lg} />}
+        ListHeaderComponent={
+          stories.length ? (
+            <View style={styles.storyRail}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.storyContent}
+              >
+                {stories.map((u) => (
+                  <View key={u.id} style={styles.story}>
+                    <AvatarRing
+                      username={u.username}
+                      imageUrl={u.avatar}
+                      size={62}
+                      ringWidth={2}
+                    />
+                    <Text
+                      style={[typography.caption, styles.storyLabel]}
+                      numberOfLines={1}
+                    >
+                      {u.username}
+                    </Text>
+                  </View>
+                ))}
+              </ScrollView>
+              <SectionDivider />
+            </View>
+          ) : null
+        }
         contentContainerStyle={styles.list}
+        refreshControl={
+          <RefreshControl
+            refreshing={loading}
+            onRefresh={load}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
         ListEmptyComponent={
-          !loading ? <Text style={styles.empty}>no posts yet</Text> : null
+          !loading ? (
+            <EmptyState
+              glyph="o"
+              title="your feed is empty"
+              body="follow some people from the search tab and their posts will land here."
+            />
+          ) : null
         }
       />
-    </View>
+      {error ? (
+        <View style={styles.errorBar}>
+          <Text style={[typography.caption, styles.errorText]}>{error}</Text>
+          <Pressable onPress={load}>
+            <Text style={[typography.label, styles.errorRetry]}>retry</Text>
+          </Pressable>
+        </View>
+      ) : null}
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
   topBar: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.sm,
+    backgroundColor: colors.background,
     borderBottomColor: colors.border,
     borderBottomWidth: 1,
+  },
+  wordmark: { letterSpacing: -0.6 },
+  storyRail: {
     backgroundColor: colors.background,
   },
-  title: { color: colors.text, fontSize: 18, fontWeight: '600' },
-  list: { padding: 12 },
-  empty: { color: colors.muted, textAlign: 'center', marginTop: 24 },
-  error: { color: colors.text, padding: 12 },
+  storyContent: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+  },
+  story: {
+    alignItems: 'center',
+    width: 72,
+    marginRight: spacing.sm,
+  },
+  storyLabel: {
+    color: colors.text,
+    marginTop: spacing.xs,
+    maxWidth: 64,
+  },
+  list: { paddingBottom: spacing.xxl, flexGrow: 1 },
+  errorBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: colors.surfaceMuted,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+  },
+  errorText: { color: colors.text, flex: 1 },
+  errorRetry: { color: colors.primary },
 });

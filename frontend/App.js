@@ -1,7 +1,10 @@
+// app shell. wraps the active screen in a phone-shaped container on web and
+// renders the gradient tabbar above it. each screen owns its own padding so
+// the shell only handles outer chrome.
 import React, { useState } from 'react';
+import { Platform, StyleSheet, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import HomeScreen from './src/screens/HomeScreen';
 import TrendingScreen from './src/screens/TrendingScreen';
@@ -12,7 +15,8 @@ import ThreadScreen from './src/screens/ThreadScreen';
 import NearbyScreen from './src/screens/NearbyScreen';
 import AnalyticsScreen from './src/screens/AnalyticsScreen';
 import CommunitiesScreen from './src/screens/CommunitiesScreen';
-import { colors } from './src/theme/colors';
+import TabBar from './src/components/TabBar';
+import { colors, layout } from './src/theme';
 
 const TABS = [
   'home',
@@ -26,52 +30,60 @@ const TABS = [
   'graph',
 ];
 
+const SCREENS = {
+  home: HomeScreen,
+  reels: ReelsScreen,
+  trending: TrendingScreen,
+  search: SearchScreen,
+  notifs: NotificationsScreen,
+  thread: ThreadScreen,
+  nearby: NearbyScreen,
+  stats: AnalyticsScreen,
+  graph: CommunitiesScreen,
+};
+
+const isWeb = Platform.OS === 'web';
+
 export default function App() {
   const [tab, setTab] = useState('home');
+  const ActiveScreen = SCREENS[tab];
+
   return (
     <SafeAreaProvider>
-      <SafeAreaView style={styles.root}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.tabbar}
-        >
-          {TABS.map((name) => (
-            <Pressable
-              key={name}
-              onPress={() => setTab(name)}
-              style={[styles.tab, tab === name && styles.tabActive]}
-            >
-              <Text style={[styles.tabText, tab === name && styles.tabTextActive]}>
-                {name}
-              </Text>
-            </Pressable>
-          ))}
-        </ScrollView>
-        {tab === 'home' && <HomeScreen />}
-        {tab === 'reels' && <ReelsScreen />}
-        {tab === 'trending' && <TrendingScreen />}
-        {tab === 'search' && <SearchScreen />}
-        {tab === 'notifs' && <NotificationsScreen />}
-        {tab === 'thread' && <ThreadScreen />}
-        {tab === 'nearby' && <NearbyScreen />}
-        {tab === 'stats' && <AnalyticsScreen />}
-        {tab === 'graph' && <CommunitiesScreen />}
-        <StatusBar style="dark" />
-      </SafeAreaView>
+      <View style={styles.outer}>
+        <View style={styles.shell}>
+          <SafeAreaView style={styles.safe} edges={['top']}>
+            <TabBar tabs={TABS} active={tab} onChange={setTab} />
+            <View style={styles.body}>
+              <ActiveScreen />
+            </View>
+            <StatusBar style="dark" />
+          </SafeAreaView>
+        </View>
+      </View>
     </SafeAreaProvider>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.background },
-  tabbar: {
-    flexDirection: 'row',
-    borderBottomColor: colors.border,
-    borderBottomWidth: 1,
+  outer: {
+    flex: 1,
+    backgroundColor: isWeb ? '#ececef' : colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  tab: { paddingVertical: 12, paddingHorizontal: 18, alignItems: 'center' },
-  tabActive: { borderBottomColor: colors.primary, borderBottomWidth: 2 },
-  tabText: { color: colors.muted },
-  tabTextActive: { color: colors.text, fontWeight: '600' },
+  shell: {
+    flex: 1,
+    width: '100%',
+    maxWidth: layout.maxAppWidth,
+    backgroundColor: colors.background,
+    ...(isWeb && {
+      shadowColor: '#000',
+      shadowOpacity: 0.12,
+      shadowRadius: 28,
+      shadowOffset: { width: 0, height: 6 },
+    }),
+  },
+  safe: { flex: 1, backgroundColor: colors.background },
+  body: { flex: 1, backgroundColor: colors.background },
 });

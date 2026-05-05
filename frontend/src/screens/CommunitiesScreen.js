@@ -1,11 +1,8 @@
-// ref: claude.md phase 6. lab 6 ex 2 dfs (communities) and lab 6 ex 3 bfs
-// (shortest chain), exposed via /api/social. the screen lists every connected
-// component sorted by size and lets you ask for the chain between any two
-// usernames.
-
+// communities + chain finder. lab 6 ex 2 dfs surfaces clusters as cards
+// with a gradient size badge; lab 6 ex 3 bfs renders the chain as a row of
+// gradient pills with subtle arrow separators.
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -14,7 +11,22 @@ import {
 } from 'react-native';
 
 import { api } from '../api/client';
-import { colors } from '../theme/colors';
+import EmptyState from '../components/EmptyState';
+import GradientButton from '../components/GradientButton';
+import GradientCardBorder from '../components/GradientCardBorder';
+import GradientPill from '../components/GradientPill';
+import GradientProgress from '../components/GradientProgress';
+import GradientText from '../components/GradientText';
+import OutlineButton from '../components/OutlineButton';
+import RankBadge from '../components/RankBadge';
+import ScreenContainer from '../components/ScreenContainer';
+import StatRow from '../components/StatRow';
+import {
+  colors,
+  radii,
+  spacing,
+  typography,
+} from '../theme';
 
 export default function CommunitiesScreen() {
   const [communities, setCommunities] = useState([]);
@@ -54,113 +66,157 @@ export default function CommunitiesScreen() {
   }, [load]);
 
   return (
-    <View style={styles.container}>
-      <View style={styles.topBar}>
-        <Text style={styles.title}>communities</Text>
-        <Pressable onPress={load} style={styles.btn}>
-          <Text style={styles.btnText}>refresh</Text>
-        </Pressable>
-      </View>
-      <View style={styles.row}>
-        <TextInput
-          value={src}
-          onChangeText={setSrc}
-          placeholder="from"
-          placeholderTextColor={colors.muted}
-          style={[styles.input, { flex: 1 }]}
-        />
-        <TextInput
-          value={dst}
-          onChangeText={setDst}
-          placeholder="to"
-          placeholderTextColor={colors.muted}
-          style={[styles.input, { flex: 1 }]}
-        />
-        <Pressable onPress={findChain} style={[styles.btn, styles.btnPrimary]}>
-          <Text style={[styles.btnText, styles.btnTextPrimary]}>chain</Text>
-        </Pressable>
-      </View>
-      {chain ? (
-        <View style={styles.chainBox}>
-          {chain.chain.length === 0 ? (
-            <Text style={styles.meta}>no path between {src} and {dst}</Text>
-          ) : (
-            <Text style={styles.body}>
-              {chain.chain.map((u) => '@' + (u.username || u.id)).join(' -> ')}{' '}
-              <Text style={styles.meta}>(length {chain.length})</Text>
-            </Text>
-          )}
+    <ScreenContainer>
+      <View style={styles.header}>
+        <View style={{ flex: 1 }}>
+          <Text style={[typography.display, { color: colors.text }]}>
+            communities
+          </Text>
+          <Text style={[typography.caption, { color: colors.muted }]}>
+            dfs clusters from lab 6 ex 2 . bfs chains from lab 6 ex 3
+          </Text>
         </View>
-      ) : null}
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-      <ScrollView>
+        <OutlineButton label="refresh" onPress={load} size="sm" />
+      </View>
+      <View style={styles.chainCard}>
+        <Text style={[typography.label, styles.sectionTitle]}>
+          shortest chain
+        </Text>
+        <View style={styles.chainRow}>
+          <TextInput
+            value={src}
+            onChangeText={setSrc}
+            placeholder="from"
+            placeholderTextColor={colors.muted}
+            style={[styles.input, { flex: 1 }]}
+            autoCapitalize="none"
+          />
+          <TextInput
+            value={dst}
+            onChangeText={setDst}
+            placeholder="to"
+            placeholderTextColor={colors.muted}
+            style={[styles.input, { flex: 1 }]}
+            autoCapitalize="none"
+          />
+          <GradientButton label="find" onPress={findChain} size="sm" />
+        </View>
+        {chain ? (
+          <View style={styles.chainResult}>
+            {chain.chain.length === 0 ? (
+              <Text style={[typography.body, { color: colors.muted }]}>
+                no path between @{src} and @{dst}
+              </Text>
+            ) : (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                {chain.chain.map((u, i) => (
+                  <View key={u.id} style={styles.hopRow}>
+                    <GradientPill
+                      label={`@${u.username || u.id}`}
+                      variant={i === 0 || i === chain.chain.length - 1 ? 'solid' : 'outline'}
+                      size="sm"
+                    />
+                    {i < chain.chain.length - 1 ? (
+                      <GradientText style={styles.arrow}>{'>'}</GradientText>
+                    ) : null}
+                  </View>
+                ))}
+              </ScrollView>
+            )}
+            {chain.chain.length > 0 ? (
+              <Text style={[typography.caption, { color: colors.muted, marginTop: spacing.xs }]}>
+                hops {chain.length}
+              </Text>
+            ) : null}
+          </View>
+        ) : null}
+      </View>
+      <GradientProgress active={loading} />
+      <ScrollView contentContainerStyle={styles.scroll}>
         {communities.map((c, idx) => (
-          <View key={idx} style={styles.card}>
-            <Text style={styles.cardHead}>
-              cluster #{idx + 1} ({c.size} members)
-            </Text>
-            <Text style={styles.body}>
-              {c.members.map((m) => `#${m}`).join(', ')}
-            </Text>
+          <View key={idx} style={styles.clusterWrap}>
+            <GradientCardBorder>
+              <View style={styles.cluster}>
+                <View style={styles.clusterHead}>
+                  <RankBadge rank={idx + 1} />
+                  <View style={{ flex: 1 }} />
+                  <StatRow size="sm" items={[{ value: c.size, label: 'members' }]} />
+                </View>
+                <View style={styles.memberWrap}>
+                  {c.members.map((m) => (
+                    <View key={m} style={styles.memberPill}>
+                      <Text style={[typography.caption, { color: colors.text }]}>
+                        #{m}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            </GradientCardBorder>
           </View>
         ))}
         {!loading && communities.length === 0 ? (
-          <Text style={styles.empty}>no communities yet</Text>
+          <EmptyState
+            glyph="d"
+            title="no communities yet"
+            body="seed the follow graph and refresh to surface dfs clusters."
+          />
         ) : null}
       </ScrollView>
-    </View>
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  topBar: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderBottomColor: colors.border,
-    borderBottomWidth: 1,
+  header: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-end',
   },
-  title: { color: colors.text, fontSize: 18, fontWeight: '600' },
-  meta: { color: colors.muted, fontSize: 12 },
-  row: {
+  chainCard: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.md,
+  },
+  sectionTitle: {
+    color: colors.muted,
+    marginBottom: spacing.xs,
+    textTransform: 'uppercase',
+  },
+  chainRow: { flexDirection: 'row', alignItems: 'center' },
+  chainResult: { marginTop: spacing.sm },
+  hopRow: { flexDirection: 'row', alignItems: 'center' },
+  arrow: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginHorizontal: spacing.xs,
+  },
+  scroll: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl, flexGrow: 1 },
+  clusterWrap: { marginBottom: spacing.md },
+  cluster: { padding: spacing.lg, backgroundColor: colors.background },
+  clusterHead: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
     alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  memberWrap: { flexDirection: 'row', flexWrap: 'wrap' },
+  memberPill: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: radii.pill,
+    marginRight: spacing.xs,
+    marginBottom: spacing.xs,
   },
   input: {
     color: colors.text,
-    borderColor: colors.border,
-    borderWidth: 1,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    marginRight: 6,
+    backgroundColor: colors.inputBackground,
+    borderRadius: radii.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    marginRight: spacing.sm,
   },
-  btn: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderColor: colors.border,
-    borderWidth: 1,
-  },
-  btnPrimary: { borderColor: colors.primary },
-  btnText: { color: colors.text, fontSize: 12 },
-  btnTextPrimary: { color: colors.primary },
-  chainBox: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderBottomColor: colors.border,
-    borderBottomWidth: 1,
-  },
-  card: {
-    padding: 12,
-    borderBottomColor: colors.border,
-    borderBottomWidth: 1,
-  },
-  cardHead: { color: colors.text, fontWeight: '600' },
-  body: { color: colors.text, marginTop: 4 },
-  empty: { color: colors.muted, textAlign: 'center', marginTop: 24 },
-  error: { color: colors.text, padding: 12 },
+  error: { color: colors.text, padding: spacing.md },
 });

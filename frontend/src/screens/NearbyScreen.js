@@ -1,12 +1,10 @@
-// ref: claude.md phase 6. lab 7 ex 1 quadtree behind /api/geo/nearby and
-// /api/geo/nearest. the screen lets you type a lat / lng and a radius; we keep
-// it text only on purpose so we don't pull in a map library that fights the
-// minimal styling rule.
-
+// nearby screen powered by the lab 7 quadtree. lat/lng/radius inputs sit in
+// soft rounded fields, city presets are gradient pills, every result row
+// surfaces a gradient distance badge and like count.
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   FlatList,
-  Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -14,7 +12,20 @@ import {
 } from 'react-native';
 
 import { api } from '../api/client';
-import { colors } from '../theme/colors';
+import AvatarRing from '../components/AvatarRing';
+import DistanceBadge from '../components/DistanceBadge';
+import EmptyState from '../components/EmptyState';
+import GradientButton from '../components/GradientButton';
+import GradientPill from '../components/GradientPill';
+import GradientProgress from '../components/GradientProgress';
+import ScreenContainer from '../components/ScreenContainer';
+import StatRow from '../components/StatRow';
+import {
+  colors,
+  radii,
+  spacing,
+  typography,
+} from '../theme';
 
 const PRESETS = [
   { label: 'Lisbon', lat: 38.72, lng: -9.14 },
@@ -51,20 +62,34 @@ export default function NearbyScreen() {
   }, [lat, lng, radius]);
 
   useEffect(() => {
-    api
-      .geoStats()
-      .then(setStats)
-      .catch(() => undefined);
+    api.geoStats().then(setStats).catch(() => undefined);
     search();
   }, [search]);
 
+  const distanceFor = useCallback(
+    (item) => {
+      if (item.distance != null) return item.distance;
+      const queryLat = parseFloat(lat);
+      const queryLng = parseFloat(lng);
+      const dx = (item.x ?? 0) - queryLng;
+      const dy = (item.y ?? 0) - queryLat;
+      return Math.sqrt(dx * dx + dy * dy);
+    },
+    [lat, lng],
+  );
+
   return (
-    <View style={styles.container}>
-      <View style={styles.topBar}>
-        <Text style={styles.title}>nearby</Text>
-        {stats ? <Text style={styles.meta}>quadtree size {stats.size}</Text> : null}
+    <ScreenContainer>
+      <View style={styles.header}>
+        <View style={{ flex: 1 }}>
+          <Text style={[typography.display, { color: colors.text }]}>nearby</Text>
+          <Text style={[typography.caption, { color: colors.muted }]}>
+            posts located by the lab 7 quadtree
+          </Text>
+        </View>
+        {stats ? <StatRow size="sm" items={[{ value: stats.size, label: 'in tree' }]} /> : null}
       </View>
-      <View style={styles.row}>
+      <View style={styles.inputRow}>
         <TextInput
           value={lat}
           onChangeText={setLat}
@@ -82,110 +107,112 @@ export default function NearbyScreen() {
         <TextInput
           value={radius}
           onChangeText={setRadius}
-          placeholder="radius (deg)"
+          placeholder="radius"
           placeholderTextColor={colors.muted}
           style={styles.input}
         />
-        <Pressable onPress={search} style={[styles.btn, styles.btnPrimary]}>
-          <Text style={[styles.btnText, styles.btnTextPrimary]}>search</Text>
-        </Pressable>
+        <GradientButton label="search" onPress={search} size="sm" />
       </View>
-      <View style={styles.presets}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.presetBar}
+      >
         {PRESETS.map((p) => (
-          <Pressable
-            key={p.label}
-            onPress={() => {
-              setLat(String(p.lat));
-              setLng(String(p.lng));
-            }}
-            style={styles.preset}
-          >
-            <Text style={styles.presetText}>{p.label}</Text>
-          </Pressable>
+          <View key={p.label} style={styles.presetChip}>
+            <GradientPill
+              label={p.label}
+              onPress={() => {
+                setLat(String(p.lat));
+                setLng(String(p.lng));
+              }}
+              variant="outline"
+              size="sm"
+            />
+          </View>
         ))}
-      </View>
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      </ScrollView>
+      <GradientProgress active={loading} />
       <FlatList
         data={items}
         keyExtractor={(item) => String(item.post_id || item.key)}
+        contentContainerStyle={styles.list}
         renderItem={({ item }) => (
-          <View style={styles.card}>
-            <Text style={styles.cardHead}>
-              @{item.author_username || 'unknown'}
-            </Text>
-            <Text style={styles.body}>{item.caption || '(no caption)'}</Text>
-            <Text style={styles.meta}>
-              {item.location} · ({item.y?.toFixed(2)}, {item.x?.toFixed(2)})
-            </Text>
+          <View style={styles.row}>
+            <AvatarRing username={item.author_username || ''} size={42} />
+            <View style={styles.body}>
+              <View style={styles.bodyHead}>
+                <Text style={[typography.bodyStrong, { color: colors.text }]}>
+                  @{item.author_username || 'unknown'}
+                </Text>
+                <DistanceBadge distance={distanceFor(item)} />
+              </View>
+              <Text style={[typography.body, { color: colors.text }]} numberOfLines={2}>
+                {item.caption || 'no caption'}
+              </Text>
+              <Text style={[typography.caption, { color: colors.muted, marginTop: 2 }]}>
+                {item.location || ''} . ({item.y?.toFixed(2)}, {item.x?.toFixed(2)})
+              </Text>
+            </View>
           </View>
         )}
         ListEmptyComponent={
-          !loading ? <Text style={styles.empty}>no posts in this radius</Text> : null
+          !loading ? (
+            <EmptyState
+              glyph="g"
+              title="no posts in this radius"
+              body="bump the radius up or hit a preset city to populate the quadtree results."
+            />
+          ) : null
         }
       />
-    </View>
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  topBar: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderBottomColor: colors.border,
-    borderBottomWidth: 1,
+  header: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-end',
   },
-  title: { color: colors.text, fontSize: 18, fontWeight: '600' },
-  meta: { color: colors.muted, fontSize: 12 },
-  row: {
+  inputRow: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.sm,
     alignItems: 'center',
   },
   input: {
     color: colors.text,
-    borderColor: colors.border,
-    borderWidth: 1,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
+    backgroundColor: colors.inputBackground,
+    borderRadius: radii.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
     flex: 1,
-    marginRight: 6,
+    marginRight: spacing.sm,
   },
-  btn: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderColor: colors.border,
-    borderWidth: 1,
+  presetBar: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.sm,
   },
-  btnPrimary: { borderColor: colors.primary },
-  btnText: { color: colors.text, fontSize: 12 },
-  btnTextPrimary: { color: colors.primary },
-  presets: {
+  presetChip: { marginRight: spacing.sm },
+  list: { paddingTop: spacing.sm, paddingBottom: spacing.xxl, flexGrow: 1 },
+  row: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingBottom: 8,
-    flexWrap: 'wrap',
-  },
-  preset: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderColor: colors.border,
-    borderWidth: 1,
-    marginRight: 6,
-    marginTop: 6,
-  },
-  presetText: { color: colors.text, fontSize: 12 },
-  card: {
-    padding: 12,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
     borderBottomColor: colors.border,
     borderBottomWidth: 1,
   },
-  cardHead: { color: colors.text, fontWeight: '600' },
-  body: { color: colors.text, marginTop: 4 },
-  empty: { color: colors.muted, textAlign: 'center', marginTop: 24 },
-  error: { color: colors.text, padding: 12 },
+  body: { flex: 1, marginLeft: spacing.md },
+  bodyHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 2,
+  },
+  error: { color: colors.text, padding: spacing.md },
 });

@@ -1,7 +1,33 @@
+// search screen. soft rounded SearchInput on top, gradient pill chips for the
+// lab 5 generalized tree categories, and a two column masonry of results.
+// users + hashtags surface above the post grid as compact gradient cards.
 import React, { useEffect, useMemo, useState } from 'react';
-import { FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  FlatList,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 
-import { colors } from '../theme/colors';
+import AvatarRing from '../components/AvatarRing';
+import EmptyState from '../components/EmptyState';
+import GradientPill from '../components/GradientPill';
+import GradientProgress from '../components/GradientProgress';
+import GradientText from '../components/GradientText';
+import ScreenContainer from '../components/ScreenContainer';
+import SearchInput from '../components/SearchInput';
+import StatPill from '../components/StatPill';
+import {
+  colors,
+  gradientDir,
+  gradientStops,
+  radii,
+  spacing,
+  typography,
+} from '../theme';
 
 const BASE = process.env.EXPO_PUBLIC_API_BASE || 'http://127.0.0.1:8000';
 
@@ -26,6 +52,7 @@ export default function SearchScreen() {
   const [categories, setCategories] = useState([]);
   const [activeCategory, setActiveCategory] = useState(null);
   const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   const trimmed = useMemo(() => query.trim(), [query]);
 
@@ -55,6 +82,7 @@ export default function SearchScreen() {
       return () => {};
     }
     setError(null);
+    setLoading(true);
     (async () => {
       try {
         const [u, h, p] = await Promise.all([
@@ -68,6 +96,8 @@ export default function SearchScreen() {
         setPosts(p.results || []);
       } catch (err) {
         if (!cancelled) setError(err.message);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     })();
     return () => {
@@ -75,157 +105,219 @@ export default function SearchScreen() {
     };
   }, [trimmed]);
 
+  // split posts into two columns for a masonry feel
+  const grid = useMemo(() => {
+    const left = [];
+    const right = [];
+    posts.forEach((p, i) => (i % 2 === 0 ? left : right).push(p));
+    return { left, right };
+  }, [posts]);
+
   return (
-    <View style={styles.container}>
-      <View style={styles.topBar}>
-        <TextInput
+    <ScreenContainer>
+      <View style={styles.searchWrap}>
+        <SearchInput
           value={query}
           onChangeText={setQuery}
-          placeholder="search posts, @users, #tags"
-          placeholderTextColor={colors.muted}
-          style={styles.input}
-          autoCapitalize="none"
-          autoCorrect={false}
+          placeholder="search posts, users, or hashtags"
+          onClear={() => setQuery('')}
         />
       </View>
+      <GradientProgress active={loading} />
       {categories.length > 0 ? (
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          style={styles.categoryBar}
-          contentContainerStyle={styles.categoryBarContent}
+          contentContainerStyle={styles.chipBar}
         >
           {categories.map((cat) => (
-            <Pressable
-              key={cat.id}
-              onPress={() => setActiveCategory(activeCategory === cat.id ? null : cat.id)}
-              style={[
-                styles.categoryChip,
-                activeCategory === cat.id && styles.categoryChipActive,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.categoryChipText,
-                  activeCategory === cat.id && styles.categoryChipTextActive,
-                ]}
-              >
-                {cat.depth > 0 ? '· ' : ''}
-                {cat.name} ({cat.total_posts})
-              </Text>
-            </Pressable>
+            <View key={cat.id} style={styles.chipWrap}>
+              <GradientPill
+                label={`${cat.depth > 0 ? '· ' : ''}${cat.name} ${cat.total_posts}`}
+                onPress={() =>
+                  setActiveCategory(activeCategory === cat.id ? null : cat.id)
+                }
+                selected={activeCategory === cat.id}
+                size="sm"
+              />
+            </View>
           ))}
         </ScrollView>
       ) : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
-      <FlatList
-        data={[
-          { type: 'header', label: 'users', count: users.length },
-          ...users.map((u) => ({ type: 'user', ...u })),
-          { type: 'header', label: 'hashtags', count: tags.length },
-          ...tags.map((t) => ({ type: 'tag', ...t })),
-          { type: 'header', label: 'posts', count: posts.length },
-          ...posts.map((p) => ({ type: 'post', ...p })),
-        ]}
-        keyExtractor={(item, idx) =>
-          item.type === 'header' ? `h-${item.label}` : `${item.type}-${item.id || item.user_id || item.hashtag_id || idx}`
-        }
-        renderItem={({ item }) => {
-          if (item.type === 'header') {
-            return (
-              <Text style={styles.section}>
-                {item.label} ({item.count})
-              </Text>
-            );
-          }
-          if (item.type === 'user') {
-            return <Text style={styles.row}>@{item.username}</Text>;
-          }
-          if (item.type === 'tag') {
-            return (
-              <Text style={styles.row}>
-                #{item.hashtag} · {item.post_count} posts
-              </Text>
-            );
-          }
-          return (
-            <View style={styles.postRow}>
-              <Text style={styles.username}>@{item.author?.username}</Text>
-              <Text numberOfLines={2} style={styles.caption}>
-                {item.caption}
-              </Text>
+      <ScrollView contentContainerStyle={styles.body}>
+        {!trimmed ? (
+          <EmptyState
+            glyph="s"
+            title="search the network"
+            body="type to ping the lab 1 inverted index, the lab 8 user trie, and the hashtag trie all at once."
+          />
+        ) : null}
+        {users.length > 0 ? (
+          <View style={styles.section}>
+            <Text style={[typography.label, styles.sectionTitle]}>
+              users  {users.length}
+            </Text>
+            {users.map((u) => (
+              <View key={u.user_id || u.id} style={styles.userRow}>
+                <AvatarRing username={u.username} size={36} />
+                <View style={{ flex: 1, marginLeft: spacing.md }}>
+                  <Text style={[typography.bodyStrong, { color: colors.text }]}>
+                    @{u.username}
+                  </Text>
+                  <Text style={[typography.caption, { color: colors.muted }]}>
+                    user
+                  </Text>
+                </View>
+                <Pressable hitSlop={8} style={styles.followBtn}>
+                  <GradientText style={typography.label}>follow</GradientText>
+                </Pressable>
+              </View>
+            ))}
+          </View>
+        ) : null}
+        {tags.length > 0 ? (
+          <View style={styles.section}>
+            <Text style={[typography.label, styles.sectionTitle]}>
+              hashtags  {tags.length}
+            </Text>
+            <View style={styles.tagWrap}>
+              {tags.map((t) => (
+                <View key={t.hashtag} style={styles.tagPill}>
+                  <GradientText style={[typography.bodyStrong, { fontSize: 13 }]}>
+                    #{t.hashtag}
+                  </GradientText>
+                  <Text style={[typography.caption, { color: colors.muted, marginLeft: 6 }]}>
+                    {t.post_count}
+                  </Text>
+                </View>
+              ))}
             </View>
-          );
-        }}
-      />
+          </View>
+        ) : null}
+        {posts.length > 0 ? (
+          <View style={styles.section}>
+            <Text style={[typography.label, styles.sectionTitle]}>
+              posts  {posts.length}
+            </Text>
+            <View style={styles.grid}>
+              <View style={styles.col}>
+                {grid.left.map((p) => (
+                  <PostTile key={p.id} post={p} />
+                ))}
+              </View>
+              <View style={styles.col}>
+                {grid.right.map((p) => (
+                  <PostTile key={p.id} post={p} />
+                ))}
+              </View>
+            </View>
+          </View>
+        ) : null}
+        {trimmed && !loading && users.length === 0 && tags.length === 0 && posts.length === 0 ? (
+          <EmptyState
+            glyph="!"
+            title="no results"
+            body="our inverted index has nothing matching that query yet."
+          />
+        ) : null}
+      </ScrollView>
+    </ScreenContainer>
+  );
+}
+
+function PostTile({ post }) {
+  const seed = post.caption || post.author?.username || `${post.id}`;
+  return (
+    <View style={tileStyles.tile}>
+      <LinearGradient
+        colors={gradientStops}
+        start={gradientDir.diagonal.start}
+        end={gradientDir.diagonal.end}
+        style={tileStyles.cover}
+      >
+        <Text style={tileStyles.coverGlyph}>
+          {seed.slice(0, 1).toUpperCase()}
+        </Text>
+      </LinearGradient>
+      <View style={tileStyles.meta}>
+        <Text style={[typography.bodyStrong, { color: colors.text, fontSize: 13 }]}
+              numberOfLines={1}>
+          @{post.author?.username || 'unknown'}
+        </Text>
+        <Text style={[typography.body, { color: colors.text, fontSize: 12 }]}
+              numberOfLines={2}>
+          {post.caption}
+        </Text>
+        <View style={tileStyles.statRow}>
+          <StatPill value={post.like_count || 0} label="likes" size="sm" />
+        </View>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  topBar: {
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderBottomColor: colors.border,
-    borderBottomWidth: 1,
+  searchWrap: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
   },
-  input: {
-    borderColor: colors.border,
-    borderWidth: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    color: colors.text,
+  chipBar: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
   },
-  section: {
-    paddingTop: 14,
-    paddingHorizontal: 12,
-    paddingBottom: 6,
+  chipWrap: { marginRight: spacing.sm },
+  body: { padding: spacing.lg, flexGrow: 1 },
+  section: { marginBottom: spacing.xl },
+  sectionTitle: {
     color: colors.muted,
-    fontSize: 12,
+    marginBottom: spacing.sm,
     textTransform: 'uppercase',
   },
-  row: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderBottomColor: colors.border,
-    borderBottomWidth: 1,
-    color: colors.text,
-  },
-  postRow: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderBottomColor: colors.border,
-    borderBottomWidth: 1,
-  },
-  username: { color: colors.text, fontWeight: '600' },
-  caption: { color: colors.text, marginTop: 4 },
-  error: { color: colors.text, padding: 12 },
-  categoryBar: {
-    maxHeight: 44,
-    borderBottomColor: colors.border,
-    borderBottomWidth: 1,
-  },
-  categoryBarContent: {
-    paddingHorizontal: 8,
+  userRow: {
+    flexDirection: 'row',
     alignItems: 'center',
+    paddingVertical: spacing.sm,
   },
-  categoryChip: {
-    borderColor: colors.border,
+  followBtn: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radii.pill,
+    backgroundColor: colors.surfaceMuted,
+  },
+  tagWrap: { flexDirection: 'row', flexWrap: 'wrap' },
+  tagPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surfaceMuted,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.pill,
+    marginRight: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  grid: { flexDirection: 'row' },
+  col: { flex: 1, marginHorizontal: spacing.xs },
+  error: { color: colors.text, padding: spacing.md },
+});
+
+const tileStyles = StyleSheet.create({
+  tile: {
+    backgroundColor: colors.background,
+    borderRadius: radii.lg,
+    overflow: 'hidden',
+    marginBottom: spacing.md,
     borderWidth: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    marginHorizontal: 4,
+    borderColor: colors.border,
   },
-  categoryChipActive: {
-    borderColor: colors.primary,
+  cover: {
+    width: '100%',
+    aspectRatio: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  categoryChipText: {
-    color: colors.muted,
-    fontSize: 12,
-  },
-  categoryChipTextActive: {
-    color: colors.text,
-    fontWeight: '600',
-  },
+  coverGlyph: { fontSize: 48, color: '#ffffff', fontWeight: '700' },
+  meta: { padding: spacing.sm },
+  statRow: { marginTop: spacing.xs },
 });

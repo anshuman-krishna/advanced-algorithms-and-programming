@@ -16,6 +16,7 @@ import {
 } from '../theme';
 import AvatarRing from './AvatarRing';
 import GradientText from './GradientText';
+import StatRow from './StatRow';
 
 function relative(ts) {
   if (!ts) return '';
@@ -105,9 +106,13 @@ export default function PostCard({ post, onComment }) {
         </Pressable>
       </View>
       <View style={styles.body}>
-        <Text style={[typography.bodyStrong, styles.likeCount]}>
-          {count} likes
-        </Text>
+        <StatRow
+          items={[
+            { value: count, label: count === 1 ? 'like' : 'likes' },
+            { value: post.comment_count || 0, label: 'comments' },
+          ]}
+          size="md"
+        />
         {post.caption ? (
           <Text style={[typography.body, styles.caption]} numberOfLines={3}>
             <Text style={typography.bodyStrong}>{username} </Text>
@@ -167,10 +172,9 @@ const styles = StyleSheet.create({
   actionLabel: { fontSize: 13 },
   body: {
     paddingHorizontal: spacing.sm,
-    paddingTop: spacing.xs,
+    paddingTop: spacing.sm,
     paddingBottom: spacing.sm,
   },
-  likeCount: { color: colors.text, marginBottom: spacing.xs },
-  caption: { color: colors.text },
+  caption: { color: colors.text, marginTop: spacing.sm },
   commentLink: { color: colors.muted, marginTop: spacing.xs },
 });

@@ -1,7 +1,7 @@
-// ref: claude.md phase 5. lab 3 ex 2 NotificationQueue exposed over rest.
-// pulling the list endpoint also drains the in memory queue, so this screen
-// effectively acts as the consumer process when the user opens it.
-
+// notifications inbox. listing the endpoint also drains the lab 3 ex 2
+// queue, so this screen acts as the consumer when opened. unread rows get
+// a soft tinted background and a gradient dot; priority rows surface a
+// gradient left border to call out the lab 3 priority lane.
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   FlatList,
@@ -13,7 +13,16 @@ import {
 } from 'react-native';
 
 import { api } from '../api/client';
-import { colors } from '../theme/colors';
+import AvatarRing from '../components/AvatarRing';
+import EmptyState from '../components/EmptyState';
+import GradientButton from '../components/GradientButton';
+import GradientDot from '../components/GradientDot';
+import GradientProgress from '../components/GradientProgress';
+import GradientText from '../components/GradientText';
+import OutlineButton from '../components/OutlineButton';
+import ScreenContainer from '../components/ScreenContainer';
+import StatPill from '../components/StatPill';
+import { colors, radii, spacing, typography } from '../theme';
 
 const KIND_LABEL = {
   like: 'liked your post',
@@ -21,6 +30,15 @@ const KIND_LABEL = {
   reply: 'replied to your comment',
   follow: 'started following you',
 };
+
+function formatRel(ts) {
+  if (!ts) return '';
+  const diff = Math.max(0, Date.now() - new Date(ts).getTime()) / 1000;
+  if (diff < 60) return `${Math.floor(diff)}s`;
+  if (diff < 3600) return `${Math.floor(diff / 60)}m`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
+  return `${Math.floor(diff / 86400)}d`;
+}
 
 export default function NotificationsScreen() {
   const [items, setItems] = useState([]);
@@ -67,24 +85,40 @@ export default function NotificationsScreen() {
     load();
   }, [load]);
 
+  const unread = items.filter((n) => !n.is_read).length;
+
   return (
-    <View style={styles.container}>
-      <View style={styles.topBar}>
-        <Text style={styles.title}>notifications</Text>
-        <View style={styles.actions}>
-          <Pressable onPress={drain} style={styles.btn}>
-            <Text style={styles.btnText}>drain ({stats.pending})</Text>
-          </Pressable>
-          <Pressable onPress={markRead} style={[styles.btn, styles.btnPrimary]}>
-            <Text style={[styles.btnText, styles.btnTextPrimary]}>mark read</Text>
-          </Pressable>
+    <ScreenContainer>
+      <View style={styles.header}>
+        <View style={{ flex: 1 }}>
+          <Text style={[typography.display, styles.title]}>activity</Text>
+          <Text style={[typography.caption, styles.subtitle]}>
+            backed by the lab 3 fifo + priority queue
+          </Text>
+        </View>
+        <View style={styles.statBlock}>
+          <StatPill value={unread} label="unread" />
+          <StatPill value={stats.pending} label="pending" />
         </View>
       </View>
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      <View style={styles.actions}>
+        <OutlineButton label={`drain ${stats.pending}`} onPress={drain} size="sm" />
+        <View style={{ width: spacing.sm }} />
+        <GradientButton label="mark all read" onPress={markRead} size="sm" />
+      </View>
+      <GradientProgress active={loading} />
       <FlatList
         data={items}
         keyExtractor={(n) => String(n.id)}
-        refreshControl={<RefreshControl refreshing={loading} onRefresh={load} />}
+        refreshControl={
+          <RefreshControl
+            refreshing={loading}
+            onRefresh={load}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
+        contentContainerStyle={styles.list}
         renderItem={({ item }) => (
           <View
             style={[
@@ -93,57 +127,81 @@ export default function NotificationsScreen() {
               item.is_priority && styles.rowPriority,
             ]}
           >
-            <Text style={styles.rowText}>
-              <Text style={styles.bold}>@{item.actor_username}</Text>{' '}
-              {KIND_LABEL[item.kind] || item.kind}
-            </Text>
-            <Text style={styles.meta}>
-              {new Date(item.created_at).toLocaleString()}
-              {item.is_priority ? ' · priority' : ''}
-            </Text>
+            <AvatarRing username={item.actor_username || ''} size={40} />
+            <View style={styles.body}>
+              <Text style={[typography.body, { color: colors.text }]} numberOfLines={2}>
+                <Text style={typography.bodyStrong}>@{item.actor_username} </Text>
+                {KIND_LABEL[item.kind] || item.kind}
+              </Text>
+              <View style={styles.metaLine}>
+                <Text style={[typography.caption, { color: colors.muted }]}>
+                  {formatRel(item.created_at)}
+                </Text>
+                {item.is_priority ? (
+                  <>
+                    <Text style={[typography.caption, { color: colors.muted, marginHorizontal: spacing.xs }]}>
+                      .
+                    </Text>
+                    <GradientText style={[typography.caption, { fontWeight: '700' }]}>
+                      priority
+                    </GradientText>
+                  </>
+                ) : null}
+              </View>
+            </View>
+            {!item.is_read ? <GradientDot size={10} /> : null}
           </View>
         )}
         ListEmptyComponent={
-          !loading ? <Text style={styles.empty}>no notifications</Text> : null
+          !loading ? (
+            <EmptyState
+              glyph="n"
+              title="no activity yet"
+              body="likes, comments, replies, and follows will land here as the queue drains."
+            />
+          ) : null
         }
       />
-    </View>
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  topBar: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderBottomColor: colors.border,
-    borderBottomWidth: 1,
+  header: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+  },
+  title: { color: colors.text },
+  subtitle: { color: colors.muted, marginTop: 2 },
+  statBlock: { flexDirection: 'row', alignItems: 'baseline' },
+  actions: {
+    flexDirection: 'row',
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.sm,
+  },
+  list: { paddingTop: spacing.sm, paddingBottom: spacing.xxl, flexGrow: 1 },
+  row: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  title: { color: colors.text, fontSize: 18, fontWeight: '600' },
-  actions: { flexDirection: 'row' },
-  btn: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderColor: colors.border,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
+    padding: spacing.md,
+    borderRadius: radii.md,
+    backgroundColor: colors.background,
     borderWidth: 1,
-    marginLeft: 6,
+    borderColor: colors.border,
   },
-  btnPrimary: { borderColor: colors.primary },
-  btnText: { color: colors.text, fontSize: 12 },
-  btnTextPrimary: { color: colors.primary },
-  row: {
-    padding: 12,
-    borderBottomColor: colors.border,
-    borderBottomWidth: 1,
+  rowUnread: { backgroundColor: '#fff8fb' },
+  rowPriority: { borderLeftColor: '#d62976', borderLeftWidth: 3 },
+  body: { flex: 1, marginLeft: spacing.md, marginRight: spacing.sm },
+  metaLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
   },
-  rowUnread: { backgroundColor: '#f7f7f7' },
-  rowPriority: { borderLeftColor: colors.primary, borderLeftWidth: 3 },
-  rowText: { color: colors.text },
-  bold: { fontWeight: '600' },
-  meta: { color: colors.muted, fontSize: 12, marginTop: 4 },
-  empty: { color: colors.muted, textAlign: 'center', marginTop: 24 },
-  error: { color: colors.text, padding: 12 },
+  error: { color: colors.text, padding: spacing.md },
 });

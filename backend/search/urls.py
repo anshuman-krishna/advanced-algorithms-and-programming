@@ -5,9 +5,11 @@ from .views import (
     ExploreTreeView,
     HashtagAutocompleteView,
     HashtagPostsView,
+    HashtagRelatedView,
     IndexStatsView,
     PostSearchView,
     RecommendationsView,
+    TrendingHashtagsView,
     UsernameAutocompleteView,
 )
 
@@ -19,6 +21,10 @@ urlpatterns = [
          name="search_autocomplete_hashtags"),
     path("hashtag/<str:name>/posts/", HashtagPostsView.as_view(),
          name="search_hashtag_posts"),
+    path("hashtag/<str:name>/related/", HashtagRelatedView.as_view(),
+         name="search_hashtag_related"),
+    path("hashtags/trending/", TrendingHashtagsView.as_view(),
+         name="search_hashtags_trending"),
     path("explore/", ExploreTreeView.as_view(), name="explore_tree"),
     path("explore/<int:category_id>/engagement/",
          CategoryEngagementView.as_view(), name="category_engagement"),

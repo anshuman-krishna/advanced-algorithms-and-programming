@@ -7,6 +7,7 @@ from .views import (
     FollowViewSet,
     GraphStatsView,
     NichePostsView,
+    ReachView,
     RelationshipView,
     ShortestChainView,
     SuggestionsView,
@@ -32,6 +33,11 @@ urlpatterns = [
         "users/<str:identifier>/niche-posts/",
         NichePostsView.as_view(),
         name="niche_posts",
+    ),
+    path(
+        "users/<str:identifier>/reach/",
+        ReachView.as_view(),
+        name="reach",
     ),
     path(
         "users/<str:identifier>/<str:kind>/",

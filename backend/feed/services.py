@@ -20,7 +20,7 @@ from django.utils import timezone
 from algorithms.doubly_linked_list import get_reels_list
 from algorithms.max_heap import get_trending_heap, hydrate_trending, is_hydrated, mark_dirty
 from algorithms.priority_queue import FeedPriorityQueue
-from algorithms.scoring import score_batch, score_post
+from algorithms.scoring import score_batch, score_breakdown, score_post
 
 # how far back to look when materializing a feed window
 DEFAULT_WINDOW_HOURS = 72
@@ -63,11 +63,13 @@ def build_home_feed(user_id: int,
 
     triples = [(p.id, p.annotated_likes, p.created_at) for p in posts]
     scored = dict(score_batch(triples))
+    max_likes = max((p.annotated_likes for p in posts), default=0)
 
     pq = FeedPriorityQueue()
     posts_by_id = {p.id: p for p in posts}
     for post_id, score in scored.items():
         post = posts_by_id[post_id]
+        breakdown = score_breakdown(post.annotated_likes, post.created_at, max_likes)
         pq.insert(
             post_id,
             score,
@@ -78,6 +80,7 @@ def build_home_feed(user_id: int,
                 "image": post.image.url if post.image else None,
                 "likes": post.annotated_likes,
                 "created_at": post.created_at.isoformat(),
+                "score_breakdown": breakdown,
             },
         )
     return pq.slice(offset, limit)

@@ -4,7 +4,12 @@ ref: claude.md phase 4 inverted index over hash tables (lab 1).
 
 import unittest
 
-from algorithms.inverted_index import InvertedIndex, extract_hashtags, tokenize
+from algorithms.inverted_index import (
+    InvertedIndex,
+    STOP_WORDS,
+    extract_hashtags,
+    tokenize,
+)
 
 
 class InvertedIndexTests(unittest.TestCase):
@@ -56,6 +61,64 @@ class InvertedIndexTests(unittest.TestCase):
         summary = self.idx.term_frequency_summary()
         self.assertEqual(summary["coffee"], 2)
         self.assertEqual(summary["run"], 2)
+
+
+class InvertedIndexStopWordsTests(unittest.TestCase):
+    def test_tokenize_drops_stop_words_by_default(self):
+        # "the" and "a" are stop words; "morning" and "coffee" are not
+        self.assertEqual(tokenize("the morning of a coffee"), ["morning", "coffee"])
+
+    def test_tokenize_keeps_stop_words_when_asked(self):
+        out = tokenize("the morning", drop_stop_words=False)
+        self.assertEqual(out, ["the", "morning"])
+
+    def test_stop_word_not_indexed(self):
+        idx = InvertedIndex()
+        idx.add_document(1, "the morning was good")
+        self.assertEqual(idx.search("the"), [])
+        self.assertEqual(idx.search("morning"), [1])
+        # the stop word should not even be in the posting lists
+        self.assertNotIn("the", idx.posting_lists)
+        for stop in ("a", "an", "the"):
+            self.assertIn(stop, STOP_WORDS)
+
+
+class InvertedIndexRankedSearchTests(unittest.TestCase):
+    def setUp(self):
+        self.idx = InvertedIndex()
+        # doc 1 mentions coffee 3 times; doc 2 once; doc 3 not at all
+        self.idx.add_document(1, "coffee coffee coffee morning")
+        self.idx.add_document(2, "morning coffee run")
+        self.idx.add_document(3, "evening run marathon")
+
+    def test_ranked_search_orders_by_relevance(self):
+        ranked = self.idx.search_ranked("coffee")
+        self.assertEqual([pid for pid, _ in ranked], [1, 2])
+        # coffee appears more often per token in doc 1, so it must rank first
+        self.assertGreater(dict(ranked)[1], dict(ranked)[2])
+
+    def test_ranked_search_multi_term(self):
+        ranked = self.idx.search_ranked("coffee run")
+        ids = [pid for pid, _ in ranked]
+        # doc 2 has both terms; doc 3 has only "run". the doc with both terms
+        # must outrank a doc that only contains one of them.
+        self.assertIn(2, ids)
+        self.assertIn(3, ids)
+        self.assertLess(ids.index(2), ids.index(3))
+
+    def test_ranked_search_empty_returns_empty(self):
+        self.assertEqual(self.idx.search_ranked(""), [])
+        self.assertEqual(self.idx.search_ranked("nothingmatchesthis"), [])
+
+    def test_ranked_search_uses_idf(self):
+        # build a corpus where one term is common and another is rare
+        idx = InvertedIndex()
+        for i in range(5):
+            idx.add_document(i, "common")
+        idx.add_document(99, "common rare")
+        ranked = idx.search_ranked("common rare")
+        # the doc with the rare term must rank ahead of the common-only docs
+        self.assertEqual(ranked[0][0], 99)
 
 
 if __name__ == "__main__":

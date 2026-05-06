@@ -86,6 +86,11 @@ def likes_in_range(user_id: int, start: date, end_inclusive: date) -> float:
     return get_tree(user_id).query(start, end_inclusive)
 
 
+def peak_day_in_range(user_id: int, start: date, end_inclusive: date) -> float:
+    """ref: lab 8 ex 3 range_max via DailySegmentTree.peak."""
+    return get_tree(user_id).peak(start, end_inclusive)
+
+
 def daily_series(user_id: int) -> List[float]:
     """leaves of the tree in date order. powers the histogram on the client."""
     return get_tree(user_id).daily_series()

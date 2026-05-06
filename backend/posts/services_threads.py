@@ -118,3 +118,51 @@ def deepest_branch_depth(post_id: int) -> int:
     if not roots:
         return 0
     return max(find_deepest_reply(root) for root in roots)
+
+
+def thread_count(post_id: int) -> int:
+    """
+    iterative count of every comment under a post.
+
+    ref: lab 4 ex 3 count_iterative. cheaper than thread_for_post since we do
+    not allocate the dict tree, just the flat node list.
+    """
+    from algorithms.comment_thread import count_iterative
+
+    roots: List[CommentNode] = build_thread(_rows_for_post(post_id))
+    return sum(count_iterative(root) for root in roots)
+
+
+def thread_engagement(post_id: int, score: str = "likes") -> dict:
+    """
+    swap the lab 4 ex 2 score function on the fly.
+
+    score=likes  -> like count per node, deleted nodes contribute zero
+    score=recency -> exponential decay by age, fresh comments dominate
+    """
+    import math
+    from datetime import datetime, timezone as dt_timezone
+
+    roots: List[CommentNode] = build_thread(_rows_for_post(post_id))
+    if not roots:
+        return {"score": score, "engagement": 0.0, "roots": 0}
+
+    if score == "recency":
+        now = datetime.now(dt_timezone.utc)
+
+        def score_fn(node: CommentNode) -> float:
+            if node.is_deleted or node.created_at is None:
+                return 0.0
+            try:
+                age_hours = max(0.0, (now - node.created_at).total_seconds() / 3600.0)
+            except TypeError:
+                return 1.0
+            # half life of 24h
+            return math.exp(-age_hours / 24.0)
+    else:
+        score_fn = None  # default in total_engagement (likes)
+
+    total = 0.0
+    for root in roots:
+        total += total_engagement(root, score_fn)
+    return {"score": score, "engagement": total, "roots": len(roots)}

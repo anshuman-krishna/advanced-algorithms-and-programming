@@ -24,6 +24,25 @@ from typing import Any, List, Optional, Tuple
 from algorithms.quadtree import BoundingBox, QuadTree
 
 
+EARTH_RADIUS_KM = 6371.0
+
+
+def haversine_km(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
+    """great circle distance in kilometres. accurate at any latitude."""
+    import math
+
+    phi1 = math.radians(lat1)
+    phi2 = math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlambda = math.radians(lng2 - lng1)
+    a = (
+        math.sin(dphi / 2.0) ** 2
+        + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2.0) ** 2
+    )
+    c = 2.0 * math.atan2(math.sqrt(a), math.sqrt(1.0 - a))
+    return EARTH_RADIUS_KM * c
+
+
 _lock = threading.Lock()
 _hydrated = False
 _tree = QuadTree(BoundingBox(-180.0, -90.0, 180.0, 90.0))
@@ -85,11 +104,34 @@ def remove_post(post_id: int) -> bool:
 
 
 def nearby(lat: float, lng: float, radius_deg: float = 1.0,
-           limit: int = 50) -> List[dict]:
-    """ref: lab 7 ex 1 radius variant. radius is in degrees, planar approximation."""
+           limit: int = 50, *, unit: str = "deg") -> List[dict]:
+    """
+    ref: lab 7 ex 1 radius variant.
+
+    when unit='deg' the radius is treated as planar degrees (the quadtree
+    indexes lat/lng directly). when unit='km' we convert the requested radius
+    into a degree bounding box that always overestimates, then filter the
+    candidates by haversine_km so users near the poles see the same effective
+    radius as users near the equator.
+    """
     hydrate_if_empty()
+    if unit == "km":
+        # at the equator, 1 deg ~= 111 km. we use a generous overestimate to
+        # ensure the bounding box never misses true neighbours at high latitudes
+        # then filter the candidates with haversine.
+        deg_estimate = max(0.001, (radius_deg / 111.0) * 1.5)
+        candidates = _tree.radius_query(lng, lat, deg_estimate)
+        out = []
+        for h in candidates:
+            km = haversine_km(lat, lng, h["y"], h["x"])
+            if km <= radius_deg:
+                h = {**h, "distance_km": km}
+                out.append(h)
+        out.sort(key=lambda h: h["distance_km"])
+        return out[:limit]
     hits = _tree.radius_query(lng, lat, radius_deg)
-    # sort by distance from query point so the closest sits first
+    for h in hits:
+        h["distance_km"] = haversine_km(lat, lng, h["y"], h["x"])
     hits.sort(key=lambda h: (h["x"] - lng) ** 2 + (h["y"] - lat) ** 2)
     return hits[:limit]
 
@@ -107,6 +149,12 @@ def nearest(lat: float, lng: float, k: int = 5) -> List[dict]:
     """ref: lab 7 ex 1 traversal extended to k nearest."""
     hydrate_if_empty()
     return _tree.nearest(lng, lat, k=k)
+
+
+def dense_regions(threshold: int = 1, min_size: float = 1.0) -> list:
+    """ref: lab 7 ex 1 find_dense_regions. delegates to the underlying quadtree."""
+    hydrate_if_empty()
+    return _tree.dense_regions(threshold=threshold, min_size=min_size)
 
 
 def stats() -> dict:

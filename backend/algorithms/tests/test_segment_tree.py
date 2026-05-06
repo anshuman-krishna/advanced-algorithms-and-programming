@@ -105,6 +105,24 @@ class DailySegmentTreeTests(unittest.TestCase):
     def test_daily_series_length(self):
         self.assertEqual(len(self.dst.daily_series()), 30)
 
+    def test_peak_returns_max_single_day(self):
+        # spread some likes; peak day should be the highest single-day count
+        self.dst.add(self.origin, 2)
+        self.dst.add(self.origin + timedelta(days=2), 9)
+        self.dst.add(self.origin + timedelta(days=2))  # 9 + 1
+        self.dst.add(self.origin + timedelta(days=4), 4)
+        peak = self.dst.peak(self.origin, self.origin + timedelta(days=10))
+        self.assertEqual(peak, 10)
+
+    def test_peak_empty_range_returns_zero(self):
+        self.assertEqual(self.dst.peak(self.origin + timedelta(days=10),
+                                       self.origin + timedelta(days=5)), 0.0)
+
+    def test_set_overrides_max(self):
+        self.dst.set(self.origin, 7)
+        self.dst.set(self.origin, 3)
+        self.assertEqual(self.dst.peak(self.origin, self.origin), 3)
+
 
 if __name__ == "__main__":
     unittest.main()

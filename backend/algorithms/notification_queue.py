@@ -26,12 +26,46 @@ class NotificationQueue:
         self._queue: Deque[dict] = deque()
         self._processed_log: List[dict] = []
         self._lock = threading.RLock()
+        # burst tracking: how many like events were enqueued for each
+        # (post_id, recipient_id) bucket recently. when a bucket trips
+        # `burst_threshold` we promote subsequent likes for that bucket onto
+        # the priority lane. simple counter with a hysteresis cap so the
+        # promotion is sticky once it activates.
+        self._burst_counts: dict[tuple, int] = {}
+        self.burst_threshold: int = 5
+        self.burst_window: int = 50  # cap so the counter cannot grow forever
 
     # core fifo
     def enqueue(self, notification: dict) -> None:
-        """ref: lab 3 ex 2 enqueue. appends to the right of the deque."""
+        """
+        ref: lab 3 ex 2 enqueue. appends to the right of the deque.
+
+        if the (post_id, recipient_id) bucket has tripped `burst_threshold`,
+        the event is auto-promoted onto the priority lane so a hot post
+        does not bury later events in the queue. ref: claude.md phase 5
+        priority lane semantics.
+        """
         with self._lock:
+            if self._should_promote(notification):
+                notification = {**notification, "is_priority": True,
+                                "promoted_for_burst": True}
+                self._queue.appendleft(notification)
+                return
             self._queue.append(notification)
+
+    def _should_promote(self, notification: dict) -> bool:
+        if notification.get("kind") != "like":
+            return False
+        post_id = notification.get("post_id")
+        recipient_id = notification.get("recipient_id")
+        if post_id is None or recipient_id is None:
+            return False
+        bucket = (post_id, recipient_id)
+        cur = self._burst_counts.get(bucket, 0) + 1
+        if cur > self.burst_window:
+            cur = self.burst_window
+        self._burst_counts[bucket] = cur
+        return cur >= self.burst_threshold
 
     def dequeue(self) -> Optional[dict]:
         """ref: lab 3 ex 2 dequeue. returns None on empty rather than raising."""
@@ -89,6 +123,7 @@ class NotificationQueue:
         with self._lock:
             self._queue.clear()
             self._processed_log.clear()
+            self._burst_counts.clear()
 
     def __len__(self) -> int:
         with self._lock:

@@ -12,11 +12,13 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
+import { api } from '../api/client';
 import AvatarRing from '../components/AvatarRing';
 import EmptyState from '../components/EmptyState';
 import GradientPill from '../components/GradientPill';
 import GradientProgress from '../components/GradientProgress';
 import GradientText from '../components/GradientText';
+import HoverPreview from '../components/HoverPreview';
 import ScreenContainer from '../components/ScreenContainer';
 import SearchInput from '../components/SearchInput';
 import StatPill from '../components/StatPill';
@@ -50,6 +52,7 @@ export default function SearchScreen() {
   const [tags, setTags] = useState([]);
   const [posts, setPosts] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [trendingTags, setTrendingTags] = useState([]);
   const [activeCategory, setActiveCategory] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -60,10 +63,14 @@ export default function SearchScreen() {
     let cancelled = false;
     (async () => {
       try {
-        const tree = await fetchJson('/api/search/explore/');
+        const [tree, trendingResp] = await Promise.all([
+          fetchJson('/api/search/explore/'),
+          api.trendingHashtags(10).catch(() => ({ results: [] })),
+        ]);
         if (cancelled) return;
         const flat = flattenCategories(tree).filter((c) => c.id && c.id > 0);
         setCategories(flat);
+        setTrendingTags(trendingResp.results || []);
       } catch (err) {
         if (!cancelled) setError(err.message);
       }
@@ -124,6 +131,37 @@ export default function SearchScreen() {
         />
       </View>
       <GradientProgress active={loading} />
+      {trendingTags.length > 0 && !trimmed ? (
+        <View style={styles.trendingWrap}>
+          <Text style={[typography.label, styles.sectionTitle]}>
+            trending tags
+          </Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.chipBar}
+          >
+            {trendingTags.map((tag) => (
+              <Pressable
+                key={tag.hashtag_id}
+                style={styles.trendingChip}
+                onPress={() => setQuery(`#${tag.hashtag}`)}
+              >
+                <GradientText
+                  style={[typography.bodyStrong, { fontSize: 13 }]}
+                >
+                  #{tag.hashtag}
+                </GradientText>
+                <Text
+                  style={[typography.caption, { color: colors.muted, marginLeft: 6 }]}
+                >
+                  {tag.post_count}
+                </Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </View>
+      ) : null}
       {categories.length > 0 ? (
         <ScrollView
           horizontal
@@ -228,18 +266,38 @@ export default function SearchScreen() {
 
 function PostTile({ post }) {
   const seed = post.caption || post.author?.username || `${post.id}`;
+  const overlay = (
+    <View>
+      <Text style={tileStyles.overlayAuthor} numberOfLines={1}>
+        @{post.author?.username || 'unknown'}
+      </Text>
+      <Text style={tileStyles.overlayCaption} numberOfLines={6}>
+        {post.caption || 'no caption'}
+      </Text>
+      <View style={{ marginTop: spacing.xs }}>
+        <StatPill
+          value={post.like_count || 0}
+          label="likes"
+          size="sm"
+          inverted
+        />
+      </View>
+    </View>
+  );
   return (
     <View style={tileStyles.tile}>
-      <LinearGradient
-        colors={gradientStops}
-        start={gradientDir.diagonal.start}
-        end={gradientDir.diagonal.end}
-        style={tileStyles.cover}
-      >
-        <Text style={tileStyles.coverGlyph}>
-          {seed.slice(0, 1).toUpperCase()}
-        </Text>
-      </LinearGradient>
+      <HoverPreview overlay={overlay} radius={radii.lg}>
+        <LinearGradient
+          colors={gradientStops}
+          start={gradientDir.diagonal.start}
+          end={gradientDir.diagonal.end}
+          style={tileStyles.cover}
+        >
+          <Text style={tileStyles.coverGlyph}>
+            {seed.slice(0, 1).toUpperCase()}
+          </Text>
+        </LinearGradient>
+      </HoverPreview>
       <View style={tileStyles.meta}>
         <Text style={[typography.bodyStrong, { color: colors.text, fontSize: 13 }]}
               numberOfLines={1}>
@@ -266,6 +324,18 @@ const styles = StyleSheet.create({
   chipBar: {
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
+  },
+  trendingWrap: {
+    paddingTop: spacing.sm,
+  },
+  trendingChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surfaceMuted,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: 999,
+    marginRight: spacing.sm,
   },
   chipWrap: { marginRight: spacing.sm },
   body: { padding: spacing.lg, flexGrow: 1 },
@@ -320,4 +390,6 @@ const tileStyles = StyleSheet.create({
   coverGlyph: { fontSize: 48, color: '#ffffff', fontWeight: '700' },
   meta: { padding: spacing.sm },
   statRow: { marginTop: spacing.xs },
+  overlayAuthor: { color: '#ffffff', fontWeight: '700', fontSize: 12 },
+  overlayCaption: { color: 'rgba(255,255,255,0.95)', fontSize: 12, marginTop: 2 },
 });

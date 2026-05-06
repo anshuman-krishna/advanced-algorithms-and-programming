@@ -29,16 +29,27 @@ class PostSearchView(APIView):
         query = request.query_params.get("q", "").strip()
         if not query:
             return Response({"detail": "q is required"}, status=400)
-        ids = services.search_posts(query)
+        # boolean operators ('|', leading '-') stay on the legacy code path.
+        # plain queries get tf-idf ranked. ref: lab 1 + standard tf-idf weighting.
+        if "|" in query or any(t.startswith("-") for t in query.split()):
+            ids = services.search_posts(query)
+            scores = {pid: 0.0 for pid in ids}
+        else:
+            ranked = services.search_posts_ranked(query)
+            ids = [pid for pid, _ in ranked]
+            scores = dict(ranked)
         if not ids:
             return Response({"query": query, "count": 0, "results": []})
         posts_qs = Post.objects.filter(id__in=ids).select_related("author")
-        # preserve search rank ordering when returning
         ordered = sorted(posts_qs, key=lambda p: ids.index(p.id))
+        serialized = PostSerializer(ordered, many=True, context={"request": request}).data
+        for entry, post in zip(serialized, ordered):
+            if scores.get(post.id):
+                entry["search_score"] = scores[post.id]
         return Response({
             "query": query,
             "count": len(ordered),
-            "results": PostSerializer(ordered, many=True, context={"request": request}).data,
+            "results": serialized,
         })
 
 
@@ -53,13 +64,46 @@ class UsernameAutocompleteView(APIView):
             return Response({"results": []})
         limit = _bounded_int(request.query_params.get("limit"), 10, 1, 50)
         hits = services.autocomplete_users(prefix, limit=limit)
-        return Response({
+        response = Response({
             "prefix": prefix,
             "results": [
                 {"username": key, "user_id": payload, "weight": weight}
                 for key, payload, weight in hits
             ],
         })
+        # autocomplete fires on every keystroke; the trie state changes only
+        # on user signup so a 30s edge cache is safe and saves the chatter
+        response["Cache-Control"] = "public, max-age=30"
+        return response
+
+
+class TrendingHashtagsView(APIView):
+    """
+    GET /api/search/hashtags/trending/?limit=
+
+    surfaces the top n hashtags by post_count, sorted desc. ref: lab 8 ex 3
+    trie weight; we read straight from the Hashtag table because the
+    `post_count` column is exactly the weight we want.
+    """
+
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        limit = _bounded_int(request.query_params.get("limit"), 10, 1, 50)
+        rows = (
+            Hashtag.objects.filter(post_count__gt=0)
+            .order_by("-post_count", "name")
+            .values("id", "name", "post_count")[:limit]
+        )
+        response = Response({
+            "results": [
+                {"hashtag": row["name"], "hashtag_id": row["id"],
+                 "post_count": row["post_count"]}
+                for row in rows
+            ],
+        })
+        response["Cache-Control"] = "public, max-age=60"
+        return response
 
 
 class HashtagAutocompleteView(APIView):
@@ -71,13 +115,15 @@ class HashtagAutocompleteView(APIView):
             return Response({"results": []})
         limit = _bounded_int(request.query_params.get("limit"), 10, 1, 50)
         hits = services.autocomplete_hashtags(prefix, limit=limit)
-        return Response({
+        response = Response({
             "prefix": prefix,
             "results": [
                 {"hashtag": key, "hashtag_id": payload, "post_count": weight}
                 for key, payload, weight in hits
             ],
         })
+        response["Cache-Control"] = "public, max-age=30"
+        return response
 
 
 class ExploreTreeView(APIView):
@@ -138,6 +184,62 @@ class IndexStatsView(APIView):
 
     def get(self, request):
         return Response(services.index_stats())
+
+
+class HashtagRelatedView(APIView):
+    """
+    GET /api/search/hashtag/<name>/related/?limit=
+
+    ref: lab 2 ex 2 jaccard similarity. for each other hashtag we compute
+    jaccard over the set of users that liked any post tagged with the given
+    name vs the users who liked posts under the candidate tag, then return
+    the top k by similarity. surfaces "if you liked #X you may like #Y" hooks.
+    """
+
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, name):
+        from algorithms.sets_ops import jaccard_similarity
+        from posts.models import Like
+
+        normalized = name.lower().lstrip("#")
+        anchor = Hashtag.objects.filter(name=normalized).first()
+        if anchor is None:
+            return Response({"hashtag": normalized, "results": []})
+        limit = _bounded_int(request.query_params.get("limit"), 10, 1, 50)
+
+        # users who liked posts tagged with `name`
+        anchor_users = set(
+            Like.objects.filter(
+                post_id__in=PostHashtag.objects.filter(hashtag=anchor).values_list("post_id", flat=True),
+            ).values_list("user_id", flat=True)
+        )
+        if not anchor_users:
+            return Response({"hashtag": normalized, "results": []})
+
+        # candidate tags: every other tag with at least one shared post or shared liker
+        results = []
+        for other in Hashtag.objects.exclude(id=anchor.id):
+            other_users = set(
+                Like.objects.filter(
+                    post_id__in=PostHashtag.objects.filter(hashtag=other).values_list("post_id", flat=True),
+                ).values_list("user_id", flat=True)
+            )
+            if not other_users:
+                continue
+            sim = jaccard_similarity(anchor_users, other_users)
+            if sim > 0:
+                results.append({
+                    "hashtag": other.name,
+                    "post_count": other.post_count,
+                    "similarity": sim,
+                })
+        results.sort(key=lambda r: r["similarity"], reverse=True)
+        return Response({
+            "hashtag": normalized,
+            "anchor_likers": len(anchor_users),
+            "results": results[:limit],
+        })
 
 
 class HashtagPostsView(APIView):

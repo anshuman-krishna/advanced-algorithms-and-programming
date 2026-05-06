@@ -110,6 +110,30 @@ class QuadTreeNearestTests(unittest.TestCase):
         self.assertEqual(qt.nearest(0, 0, k=0), [])
 
 
+class QuadTreeDenseRegionsTests(unittest.TestCase):
+    """ref: lab 7 ex 1 find_dense_regions."""
+
+    def test_dense_regions_find_clusters(self):
+        qt = QuadTree(BoundingBox(0, 0, 100, 100), capacity=2)
+        # cluster of points in the bottom-left corner
+        for x, y in [(5, 5), (6, 4), (4, 6), (7, 7)]:
+            qt.insert(x, y, f"a{x}{y}")
+        # one isolated point in the opposite corner
+        qt.insert(95, 95, "lone")
+        regions = qt.dense_regions(threshold=2, min_size=10)
+        # at least one region must include the bottom-left cluster
+        in_cluster = [r for r in regions if r["min_x"] < 50 and r["min_y"] < 50 and r["count"] >= 3]
+        self.assertTrue(in_cluster)
+
+    def test_dense_regions_respects_min_size(self):
+        qt = QuadTree(BoundingBox(0, 0, 100, 100), capacity=2)
+        for i in range(8):
+            qt.insert(50 + i * 0.1, 50, f"p{i}")
+        regions = qt.dense_regions(threshold=1, min_size=200)
+        # min_size larger than the bbox side: only the root counts (none if bbox <200)
+        self.assertEqual(regions, [])
+
+
 class QuadTreePathologyTests(unittest.TestCase):
     def test_many_coincident_points_terminate(self):
         qt = QuadTree(BoundingBox(0, 0, 100, 100), capacity=2)

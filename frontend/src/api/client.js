@@ -113,4 +113,21 @@ export const api = {
     ),
   nichePosts: (identifier, limit = 20) =>
     request(`/api/social/users/${identifier}/niche-posts/?limit=${limit}`),
+  reach: (identifier, maxDepth) => {
+    const qs = maxDepth != null ? `?max_depth=${maxDepth}` : '';
+    return request(`/api/social/users/${identifier}/reach/${qs}`);
+  },
+
+  // phase 7 follow-ups
+  threadCount: (postId) => request(`/api/posts/posts/${postId}/thread-count/`),
+  threadEngagement: (postId, score = 'likes') =>
+    request(`/api/posts/posts/${postId}/thread-engagement/?score=${score}`),
+  hashtagRelated: (name, limit = 10) =>
+    request(`/api/search/hashtag/${encodeURIComponent(name)}/related/?limit=${limit}`),
+  exploreFeed: (categoryId, k = 10) =>
+    request(`/api/feed/explore/?category=${categoryId}&k=${k}`),
+  geoDense: (threshold = 1, minSize = 5) =>
+    request(`/api/geo/dense/?threshold=${threshold}&min_size=${minSize}`),
+  trendingHashtags: (limit = 10) =>
+    request(`/api/search/hashtags/trending/?limit=${limit}`),
 };

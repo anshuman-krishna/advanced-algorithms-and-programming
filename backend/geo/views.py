@@ -34,9 +34,12 @@ class GeoNearbyView(APIView):
             return Response({"detail": "lat and lng are required"}, status=400)
         radius = _parse_float(request.query_params.get("radius"), 1.0)
         limit = int(_parse_float(request.query_params.get("limit"), 50))
-        results = services.nearby(lat, lng, radius_deg=radius, limit=limit)
+        unit = request.query_params.get("unit", "deg")
+        if unit not in ("deg", "km"):
+            return Response({"detail": "unit must be deg or km"}, status=400)
+        results = services.nearby(lat, lng, radius_deg=radius, limit=limit, unit=unit)
         return Response({
-            "lat": lat, "lng": lng, "radius_deg": radius,
+            "lat": lat, "lng": lng, "radius": radius, "unit": unit,
             "count": len(results), "results": results,
         })
 
@@ -76,6 +79,29 @@ class GeoNearestView(APIView):
         k = int(_parse_float(request.query_params.get("k"), 5))
         results = services.nearest(lat, lng, k=k)
         return Response({"lat": lat, "lng": lng, "k": k, "results": results})
+
+
+class GeoDenseView(APIView):
+    """
+    GET /api/geo/dense/?threshold=&min_size=
+
+    ref: lab 7 ex 1 find_dense_regions. surfaces every quadtree subdivision
+    that holds more than `threshold` points and is at least `min_size` degrees
+    wide. used by the demo to show divide and conquer literally.
+    """
+
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        threshold = int(_parse_float(request.query_params.get("threshold"), 1))
+        min_size = _parse_float(request.query_params.get("min_size"), 5.0)
+        regions = services.dense_regions(threshold=threshold, min_size=min_size)
+        return Response({
+            "threshold": threshold,
+            "min_size": min_size,
+            "count": len(regions),
+            "regions": regions,
+        })
 
 
 class GeoStatsView(APIView):

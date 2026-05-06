@@ -79,3 +79,24 @@ def score_batch(posts: Sequence[Tuple[int, int, datetime]],
         out.append((post_id, score_post(likes, created_at, max_likes, now=now,
                                          freshness_hours=freshness_hours)))
     return out
+
+
+def score_breakdown(likes: int, created_at: datetime, max_likes: int,
+                    now: Optional[datetime] = None,
+                    freshness_hours: float = DEFAULT_FRESHNESS_HOURS) -> dict:
+    """
+    return a per-component breakdown of the score so the ui can label why
+    a post ranked. weights kept here so the frontend can render the same
+    tooltip everywhere.
+    """
+    lk = normalize_likes(likes, max_likes)
+    rc = recency_factor(created_at, now=now, freshness_hours=freshness_hours)
+    return {
+        "likes_normalized": lk,
+        "likes_weight": LIKES_WEIGHT,
+        "likes_contribution": LIKES_WEIGHT * lk,
+        "recency_factor": rc,
+        "recency_weight": RECENCY_WEIGHT,
+        "recency_contribution": RECENCY_WEIGHT * rc,
+        "total": LIKES_WEIGHT * lk + RECENCY_WEIGHT * rc,
+    }

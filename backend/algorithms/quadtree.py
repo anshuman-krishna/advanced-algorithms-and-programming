@@ -250,6 +250,41 @@ class QuadTree:
             for x, y, key, payload in items:
                 self.insert(x, y, key, payload)
 
+    def dense_regions(self, threshold: int, min_size: float) -> List[dict]:
+        """
+        ref: lab 7 ex 1 find_dense_regions. recursively descend, marking any
+        region whose point count exceeds `threshold` and whose width and
+        height are at least `min_size`.
+        """
+        out: List[dict] = []
+        self._dense_regions(threshold, min_size, out)
+        return out
+
+    def _dense_regions(self, threshold: int, min_size: float, out: List[dict]) -> None:
+        count = self._count_in_subtree()
+        width = self.bbox.max_x - self.bbox.min_x
+        height = self.bbox.max_y - self.bbox.min_y
+        if count > threshold and width >= min_size and height >= min_size:
+            out.append({
+                "min_x": self.bbox.min_x,
+                "min_y": self.bbox.min_y,
+                "max_x": self.bbox.max_x,
+                "max_y": self.bbox.max_y,
+                "count": count,
+                "depth": self.depth,
+            })
+        if self.children is None:
+            return
+        for child in self.children:
+            child._dense_regions(threshold, min_size, out)
+
+    def _count_in_subtree(self) -> int:
+        total = len(self.points)
+        if self.children is not None:
+            for child in self.children:
+                total += child._count_in_subtree()
+        return total
+
     def all_points(self) -> List[dict]:
         out: List[dict] = []
         for pt in self.points:

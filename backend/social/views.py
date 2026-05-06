@@ -94,19 +94,47 @@ class UserGraphView(APIView):
     GET /api/social/users/<id|username>/followers/
     GET /api/social/users/<id|username>/following/
     GET /api/social/users/<id|username>/relationship/<other>/
+
+    if `user.is_private` is true the follower / following list is only visible
+    to the owner or to someone who already follows them. unauthorized callers
+    receive a stub payload with `private: true` and an empty list.
     """
 
     permission_classes = [permissions.AllowAny]
 
     def get(self, request, identifier, kind):
         user = _resolve_user(identifier)
+        if kind not in ("followers", "following"):
+            return Response({"detail": "unknown kind"}, status=status.HTTP_404_NOT_FOUND)
+
+        viewer = request.user if request.user.is_authenticated else None
+        if user.is_private:
+            allowed = (
+                viewer is not None
+                and (viewer.id == user.id or services.is_following(viewer.id, user.id))
+            )
+            if not allowed:
+                return Response({
+                    "user_id": user.id,
+                    "private": True,
+                    "count": 0,
+                    "results": [],
+                })
+
         if kind == "followers":
             ids = services.get_followers(user.id)
-        elif kind == "following":
-            ids = services.get_following(user.id)
         else:
-            return Response({"detail": "unknown kind"}, status=status.HTTP_404_NOT_FOUND)
-        return Response({"count": len(ids), "results": _users_payload(ids)})
+            ids = services.get_following(user.id)
+        response = Response({
+            "user_id": user.id,
+            "private": user.is_private,
+            "count": len(ids),
+            "results": _users_payload(ids),
+        })
+        # short edge cache so the frontend can short circuit duplicate
+        # requests during a single session without waiting on the api
+        response["Cache-Control"] = "private, max-age=30"
+        return response
 
 
 class RelationshipView(APIView):
@@ -115,13 +143,15 @@ class RelationshipView(APIView):
     def get(self, request, identifier, other):
         a = _resolve_user(identifier)
         b = _resolve_user(other)
-        return Response({
+        response = Response({
             "a_follows_b": services.is_following(a.id, b.id),
             "b_follows_a": services.is_following(b.id, a.id),
             "mutual_followers": list(services.mutual_followers_of(a.id, b.id)),
             "shared_following": list(services.shared_following_of(a.id, b.id)),
             "follower_jaccard": services.follower_jaccard(a.id, b.id),
         })
+        response["Cache-Control"] = "private, max-age=30"
+        return response
 
 
 class SuggestionsView(APIView):
@@ -227,6 +257,39 @@ class ShortestChainView(APIView):
                 {"id": uid, "username": users_by_id.get(uid).username if users_by_id.get(uid) else None}
                 for uid in chain
             ],
+        })
+
+
+class ReachView(APIView):
+    """
+    GET /api/social/users/<id|username>/reach/?max_depth=
+
+    ref: lab 6 ex 3 bfs_with_distances. groups users by hop distance so the
+    frontend can paint a six-degrees-of-separation visualization.
+    """
+
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, identifier):
+        user = _resolve_user(identifier)
+        max_depth = request.query_params.get("max_depth")
+        try:
+            depth = int(max_depth) if max_depth is not None else None
+        except ValueError:
+            return Response({"detail": "max_depth must be an integer"}, status=400)
+        distances = services.bfs_distances(user.id, max_depth=depth)
+        buckets = {}
+        for user_id, hops in distances.items():
+            buckets.setdefault(hops, []).append(user_id)
+        layers = [
+            {"depth": d, "user_ids": sorted(buckets[d]), "count": len(buckets[d])}
+            for d in sorted(buckets.keys())
+        ]
+        return Response({
+            "user_id": user.id,
+            "username": user.username,
+            "reach": len(distances),
+            "layers": layers,
         })
 
 

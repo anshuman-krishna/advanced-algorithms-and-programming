@@ -15,9 +15,12 @@ import {
 import { api } from '../api/client';
 import AvatarRing from '../components/AvatarRing';
 import EmptyState from '../components/EmptyState';
+import CyclingGradientText from '../components/CyclingGradientText';
+import GradientCardBorder from '../components/GradientCardBorder';
 import GradientProgress from '../components/GradientProgress';
 import GradientText from '../components/GradientText';
 import PostCard from '../components/PostCard';
+import StatRow from '../components/StatRow';
 import ScreenContainer from '../components/ScreenContainer';
 import SectionDivider from '../components/SectionDivider';
 import { colors, spacing, typography } from '../theme';
@@ -27,6 +30,7 @@ export default function HomeScreen() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [trendingReel, setTrendingReel] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -53,6 +57,10 @@ export default function HomeScreen() {
   useEffect(() => {
     load();
     loadStories();
+    api
+      .reelsMostViewed()
+      .then((res) => setTrendingReel(res || null))
+      .catch(() => undefined);
   }, [load, loadStories]);
 
   const stories = useMemo(() => users, [users]);
@@ -60,9 +68,9 @@ export default function HomeScreen() {
   return (
     <ScreenContainer padded={false}>
       <View style={styles.topBar}>
-        <GradientText style={[typography.display, styles.wordmark]}>
+        <CyclingGradientText style={[typography.display, styles.wordmark]}>
           instagram
-        </GradientText>
+        </CyclingGradientText>
       </View>
       <GradientProgress active={loading} />
       <FlatList
@@ -71,8 +79,40 @@ export default function HomeScreen() {
         renderItem={({ item }) => <PostCard post={item} />}
         ItemSeparatorComponent={() => <SectionDivider inset={spacing.lg} />}
         ListHeaderComponent={
-          stories.length ? (
-            <View style={styles.storyRail}>
+          <View>
+            {trendingReel ? (
+              <View style={styles.trendingReelWrap}>
+                <GradientCardBorder>
+                  <View style={styles.trendingReel}>
+                    <View style={{ flex: 1 }}>
+                      <GradientText style={[typography.label, { fontSize: 11 }]}>
+                        trending reel
+                      </GradientText>
+                      <Text
+                        style={[typography.bodyStrong, { color: colors.text, marginTop: 2 }]}
+                        numberOfLines={1}
+                      >
+                        @{trendingReel.author_username}
+                      </Text>
+                      <Text
+                        style={[typography.caption, { color: colors.muted, marginTop: 2 }]}
+                        numberOfLines={1}
+                      >
+                        {trendingReel.caption || 'no caption'}
+                      </Text>
+                    </View>
+                    <StatRow
+                      size="sm"
+                      items={[
+                        { value: trendingReel.views || 0, label: 'views' },
+                      ]}
+                    />
+                  </View>
+                </GradientCardBorder>
+              </View>
+            ) : null}
+            {stories.length ? (
+              <View style={styles.storyRail}>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -97,7 +137,8 @@ export default function HomeScreen() {
               </ScrollView>
               <SectionDivider />
             </View>
-          ) : null
+          ) : null}
+          </View>
         }
         contentContainerStyle={styles.list}
         refreshControl={
@@ -140,6 +181,15 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   wordmark: { letterSpacing: -0.6 },
+  trendingReelWrap: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+  },
+  trendingReel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.md,
+  },
   storyRail: {
     backgroundColor: colors.background,
   },

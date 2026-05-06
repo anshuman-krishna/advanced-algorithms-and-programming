@@ -106,5 +106,40 @@ class NotificationQueueConcurrencyTests(unittest.TestCase):
         self.assertEqual(len(q), 1)
 
 
+class NotificationQueueBurstPromotionTests(unittest.TestCase):
+    """ref: lab 3 ex 2 priority_enqueue + threshold based promotion."""
+
+    def test_likes_promoted_after_threshold(self):
+        q = NotificationQueue()
+        q.burst_threshold = 3
+        # first two likes for the same post stay in fifo order
+        for i in range(2):
+            q.enqueue({"id": i, "kind": "like", "post_id": 7, "recipient_id": 1})
+        # third like trips the burst threshold and jumps to the front
+        q.enqueue({"id": 99, "kind": "like", "post_id": 7, "recipient_id": 1})
+        first = q.dequeue()
+        self.assertEqual(first["id"], 99)
+        self.assertTrue(first["is_priority"])
+        self.assertTrue(first["promoted_for_burst"])
+
+    def test_other_buckets_unaffected(self):
+        q = NotificationQueue()
+        q.burst_threshold = 2
+        q.enqueue({"id": 1, "kind": "like", "post_id": 1, "recipient_id": 1})
+        q.enqueue({"id": 2, "kind": "like", "post_id": 1, "recipient_id": 1})  # promoted
+        q.enqueue({"id": 3, "kind": "like", "post_id": 2, "recipient_id": 1})  # different post, fifo
+        ids = [q.dequeue()["id"] for _ in range(3)]
+        # promoted item goes first, then the original fifo order
+        self.assertEqual(ids, [2, 1, 3])
+
+    def test_non_like_events_never_promoted(self):
+        q = NotificationQueue()
+        q.burst_threshold = 1
+        q.enqueue({"id": 1, "kind": "comment", "post_id": 1, "recipient_id": 1})
+        q.enqueue({"id": 2, "kind": "comment", "post_id": 1, "recipient_id": 1})
+        ids = [q.dequeue()["id"] for _ in range(2)]
+        self.assertEqual(ids, [1, 2])
+
+
 if __name__ == "__main__":
     unittest.main()

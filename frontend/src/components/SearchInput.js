@@ -4,6 +4,7 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { colors, radii, spacing, typography } from '../theme';
+import MagnifierGlyph from './MagnifierGlyph';
 
 export default function SearchInput({
   value,
@@ -15,7 +16,9 @@ export default function SearchInput({
 }) {
   return (
     <View style={styles.wrap}>
-      <Text style={styles.glyph}>q</Text>
+      <View style={styles.glyphSlot}>
+        <MagnifierGlyph size={16} />
+      </View>
       <TextInput
         value={value}
         onChangeText={onChangeText}
@@ -45,12 +48,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
   },
-  glyph: {
-    color: colors.muted,
-    fontSize: 14,
-    fontWeight: '700',
+  glyphSlot: {
     marginRight: spacing.sm,
-    transform: [{ rotate: '45deg' }],
+    width: 18,
+    height: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   input: {
     flex: 1,

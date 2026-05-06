@@ -93,6 +93,14 @@ class Comment(models.Model):
         indexes = [
             models.Index(fields=["post", "parent", "created_at"]),
         ]
+        constraints = [
+            # defense in depth on top of the recursive cycle guard in build_thread.
+            # a comment must never reference itself as parent.
+            models.CheckConstraint(
+                check=~models.Q(parent_id=models.F("id")),
+                name="comment_parent_not_self",
+            ),
+        ]
 
     def __str__(self):
         return f"comment {self.pk} on post {self.post_id}"

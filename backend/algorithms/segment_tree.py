@@ -132,6 +132,9 @@ class DailySegmentTree:
 
     ref: lab 8 ex 3 range_sum, applied to per-day engagement buckets.
 
+    we keep two underlying segment trees: one with sum aggregation for range
+    totals, one with max aggregation for peak day queries. both are kept
+    consistent through the public mutators so callers never see drift.
     callers ask "how many likes did user X get between date A and date B" and
     we translate the dates to index offsets, then defer to the underlying tree.
     if a date falls outside the configured window we silently clamp to the
@@ -144,15 +147,26 @@ class DailySegmentTree:
         self.origin = origin
         self.window_days = window_days
         self.tree = SegmentTree(window_days)
+        self.max_tree = SegmentTree(
+            window_days, identity=float("-inf"), combine=max,
+        )
 
     def _index(self, day: date) -> int:
         return (day - self.origin).days
+
+    def _refresh_max(self, idx: int) -> None:
+        # max tree stores the absolute value at idx; sum tree may have it as
+        # the running total, so we query a width-1 range on the sum tree
+        # which equals the leaf value
+        leaf = self.tree.range_query(idx, idx + 1)
+        self.max_tree.point_set(idx, leaf)
 
     def add(self, day: date, count: float = 1.0) -> bool:
         idx = self._index(day)
         if not 0 <= idx < self.window_days:
             return False
         self.tree.point_update(idx, count)
+        self._refresh_max(idx)
         return True
 
     def set(self, day: date, value: float) -> bool:
@@ -160,6 +174,7 @@ class DailySegmentTree:
         if not 0 <= idx < self.window_days:
             return False
         self.tree.point_set(idx, value)
+        self.max_tree.point_set(idx, value)
         return True
 
     def query(self, start: date, end_inclusive: date) -> float:
@@ -167,6 +182,20 @@ class DailySegmentTree:
         lo = max(0, self._index(start))
         hi = min(self.window_days, self._index(end_inclusive) + 1)
         return self.tree.range_query(lo, hi)
+
+    def peak(self, start: date, end_inclusive: date) -> float:
+        """
+        max single-day count over [start, end] inclusive on both ends.
+
+        ref: lab 8 ex 3 range_max. powers "best single day" widgets without a
+        second pass over the data.
+        """
+        lo = max(0, self._index(start))
+        hi = min(self.window_days, self._index(end_inclusive) + 1)
+        if lo >= hi:
+            return 0.0
+        result = self.max_tree.range_query(lo, hi)
+        return 0.0 if result == float("-inf") else result
 
     def total(self) -> float:
         return self.tree.total()

@@ -29,6 +29,11 @@ def search_posts(query: str) -> List[int]:
     return inverted_index.ensure_hydrated().search(query)
 
 
+def search_posts_ranked(query: str) -> List[Tuple[int, float]]:
+    """ref: lab 1 hash table indexing + tf-idf ranking."""
+    return inverted_index.ensure_hydrated().search_ranked(query)
+
+
 def index_post(post_id: int, text: str) -> None:
     inverted_index.get_index().add_document(post_id, text)
 

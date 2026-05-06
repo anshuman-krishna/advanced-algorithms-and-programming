@@ -53,6 +53,7 @@ class LikesRangeView(APIView):
         if start > end:
             start, end = end, start
         total = services.likes_in_range(user.id, start, end)
+        peak = services.peak_day_in_range(user.id, start, end)
         return Response({
             "user_id": user.id,
             "username": user.username,
@@ -60,6 +61,7 @@ class LikesRangeView(APIView):
             "to": end.isoformat(),
             "days": (end - start).days + 1,
             "total_likes": int(total),
+            "peak_day_likes": int(peak),
         })
 
 

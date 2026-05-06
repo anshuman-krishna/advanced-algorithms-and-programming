@@ -106,6 +106,27 @@ class PostViewSet(viewsets.ModelViewSet):
             "max_depth": services_threads.deepest_branch_depth(post.id),
         })
 
+    @action(detail=True, methods=["get"], url_path="thread-count")
+    def thread_count(self, request, pk=None):
+        """ref: lab 4 ex 3 count_iterative. cheap inbox preview without serializing the tree."""
+        post = self.get_object()
+        return Response({
+            "post_id": post.id,
+            "count": services_threads.thread_count(post.id),
+        })
+
+    @action(detail=True, methods=["get"], url_path="thread-engagement")
+    def thread_engagement(self, request, pk=None):
+        """ref: lab 4 ex 2 divide and conquer aggregator with a swappable score."""
+        post = self.get_object()
+        score = request.query_params.get("score", "likes")
+        if score not in ("likes", "recency"):
+            return Response({"detail": "score must be 'likes' or 'recency'"}, status=400)
+        return Response({
+            "post_id": post.id,
+            **services_threads.thread_engagement(post.id, score=score),
+        })
+
 
 class CommentViewSet(viewsets.ModelViewSet):
     """

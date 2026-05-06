@@ -1,3 +1,7 @@
+import threading
+import time
+from collections import deque
+
 from django.shortcuts import get_object_or_404
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
@@ -7,6 +11,40 @@ from . import services_threads
 from .models import Comment, CommentLike, Like, Post
 from .permissions import IsAuthorOrReadOnly
 from .serializers import CommentSerializer, PostSerializer
+
+# per-thread rate limiter: each (post_id, user_id) keeps a deque of recent
+# comment timestamps. once the bucket carries more than RATE_LIMIT entries
+# inside RATE_WINDOW_SEC the next create returns 429. defends the lab 4 ex 3
+# iterative stack ceiling against a single user spamming a deep branch.
+RATE_LIMIT = 10
+RATE_WINDOW_SEC = 60.0
+_rate_state: dict[tuple[int, int], deque] = {}
+_rate_lock = threading.Lock()
+
+
+def _rate_check(post_id: int, user_id: int) -> bool:
+    """returns True when the call is permitted, False once over the limit."""
+    now = time.monotonic()
+    key = (post_id, user_id)
+    with _rate_lock:
+        bucket = _rate_state.get(key)
+        if bucket is None:
+            bucket = deque()
+            _rate_state[key] = bucket
+        # drop expired entries from the left
+        cutoff = now - RATE_WINDOW_SEC
+        while bucket and bucket[0] < cutoff:
+            bucket.popleft()
+        if len(bucket) >= RATE_LIMIT:
+            return False
+        bucket.append(now)
+        return True
+
+
+def _rate_reset() -> None:
+    """test only helper to drop the rate state between cases."""
+    with _rate_lock:
+        _rate_state.clear()
 
 
 class PostViewSet(viewsets.ModelViewSet):
@@ -137,6 +175,25 @@ class CommentViewSet(viewsets.ModelViewSet):
     queryset = Comment.objects.select_related("author", "post").all()
     serializer_class = CommentSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAuthorOrReadOnly]
+
+    def create(self, request, *args, **kwargs):
+        # bind the rate limiter to (post_id, user_id) before serializer runs
+        # so spam attempts pay no parsing cost beyond the post lookup
+        post_id = request.data.get("post")
+        try:
+            post_id_int = int(post_id) if post_id is not None else None
+        except (TypeError, ValueError):
+            post_id_int = None
+        if (
+            request.user.is_authenticated
+            and post_id_int is not None
+            and not _rate_check(post_id_int, request.user.id)
+        ):
+            return Response(
+                {"detail": f"too many comments on this post; limit {RATE_LIMIT} per {int(RATE_WINDOW_SEC)}s"},
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
+        return super().create(request, *args, **kwargs)
 
     def perform_create(self, serializer):
         # parent comment must belong to the same post if provided

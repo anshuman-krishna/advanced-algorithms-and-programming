@@ -10,9 +10,10 @@ from django.dispatch import receiver
 from algorithms.inverted_index import extract_hashtags, get_index
 from algorithms.trie import ensure_hashtag_trie, ensure_user_trie
 
-from posts.models import Post
+from posts.models import Like, Post
 
-from .models import Hashtag, PostHashtag
+from .models import Category, Hashtag, PostCategory, PostHashtag
+from .services import invalidate_explore_cache
 
 User = get_user_model()
 
@@ -34,6 +35,7 @@ def on_post_saved(sender, instance, created, **kwargs):
     text = instance.caption or ""
     get_index().add_document(instance.id, text)
     _refresh_hashtag_links(instance)
+    invalidate_explore_cache()
 
 
 @receiver(post_delete, sender=Post)
@@ -42,6 +44,23 @@ def on_post_deleted(sender, instance, **kwargs):
     # PostHashtag rows are removed via cascade. update counts.
     for tag_id in PostHashtag.objects.filter(post_id=instance.id).values_list("hashtag_id", flat=True):
         Hashtag.objects.filter(id=tag_id).update(post_count=models.F("post_count") - 1)
+    invalidate_explore_cache()
+
+
+# rolling up engagement on the explore tree depends on like + category rows;
+# any of these mutations should drop the cache so the next read recomputes
+@receiver(post_save, sender=Like)
+@receiver(post_delete, sender=Like)
+def on_like_changed(sender, instance, **kwargs):
+    invalidate_explore_cache()
+
+
+@receiver(post_save, sender=Category)
+@receiver(post_delete, sender=Category)
+@receiver(post_save, sender=PostCategory)
+@receiver(post_delete, sender=PostCategory)
+def on_taxonomy_changed(sender, instance, **kwargs):
+    invalidate_explore_cache()
 
 
 def _refresh_hashtag_links(post: Post) -> None:

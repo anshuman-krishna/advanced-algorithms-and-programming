@@ -22,6 +22,7 @@ from django.utils import timezone
 
 from algorithms.notification_queue import get_queue
 
+from . import persistence
 from .models import Notification
 
 
@@ -29,7 +30,12 @@ def enqueue_event(*, recipient_id: int, actor_id: int, kind: str,
                   post_id: Optional[int] = None,
                   comment_id: Optional[int] = None,
                   is_priority: bool = False) -> None:
-    """called by signal handlers. ref: lab 3 ex 2 enqueue / priority_enqueue."""
+    """called by signal handlers. ref: lab 3 ex 2 enqueue / priority_enqueue.
+
+    we also append the payload to the sqlite spillover so a process restart
+    does not drop pending events. the spillover row id rides along on the
+    payload so the drainer can prune it once the event lands in the db.
+    """
     if recipient_id == actor_id:
         # do not notify yourself
         return
@@ -41,11 +47,29 @@ def enqueue_event(*, recipient_id: int, actor_id: int, kind: str,
         "comment_id": comment_id,
         "is_priority": is_priority,
     }
+    spillover_id = persistence.append(payload)
+    if spillover_id is not None:
+        payload["_spillover_id"] = spillover_id
     queue = get_queue()
     if is_priority:
         queue.priority_enqueue(payload)
     else:
         queue.enqueue(payload)
+
+
+def rehydrate_from_spillover() -> int:
+    """called once on AppConfig.ready. push every spilled row back onto the queue."""
+    pending = persistence.drain_all()
+    if not pending:
+        return 0
+    queue = get_queue()
+    for payload in pending:
+        # we cleared the table on read so we do not stamp _spillover_id back
+        if payload.get("is_priority"):
+            queue.priority_enqueue(payload)
+        else:
+            queue.enqueue(payload)
+    return len(pending)
 
 
 def drain(max_events: int = 100) -> List[Notification]:
@@ -72,6 +96,12 @@ def drain(max_events: int = 100) -> List[Notification]:
         for item in drained
     ]
     Notification.objects.bulk_create(objs)
+    # purge spillover rows for everything we just persisted; the drf row
+    # is now the source of truth so the spillover entry is no longer needed
+    for item in drained:
+        sid = item.get("_spillover_id")
+        if sid is not None:
+            persistence.remove(sid)
     return objs
 
 

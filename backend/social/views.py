@@ -201,18 +201,32 @@ class CommunitiesView(APIView):
 
     ref: claude.md phase 6. lab 6 ex 2 dfs connected components on the
     undirected friendship view. returns clusters sorted by size desc.
+
+    each cluster is labeled with the username of its most-followed member
+    (highest in-degree on the lab 6 adjacency list) so the frontend can
+    show "alice's circle" instead of just numbering anonymous clusters.
     """
 
     permission_classes = [permissions.AllowAny]
 
     def get(self, request):
         components = services.communities()
-        return Response({
-            "count": len(components),
-            "components": [
-                {"size": len(c), "members": c} for c in components
-            ],
-        })
+        if not components:
+            return Response({"count": 0, "components": []})
+        # collect every member id once so we hit the user table in a single query
+        all_ids = {uid for c in components for uid in c}
+        users_by_id = {u.id: u for u in User.objects.filter(id__in=all_ids)}
+        out = []
+        for component in components:
+            label_id = max(component, key=lambda uid: services.in_degree(uid))
+            label_user = users_by_id.get(label_id)
+            out.append({
+                "size": len(component),
+                "members": component,
+                "label": label_user.username if label_user else None,
+                "label_user_id": label_id,
+            })
+        return Response({"count": len(components), "components": out})
 
 
 class CommunityOfView(APIView):

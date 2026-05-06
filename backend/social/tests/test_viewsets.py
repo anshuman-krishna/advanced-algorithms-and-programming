@@ -87,3 +87,19 @@ class SocialViewsetIntegrationTests(TestCase):
         # private flag still surfaces but the list is populated
         self.assertTrue(body["private"])
         self.assertGreaterEqual(body["count"], 1)
+
+    def test_communities_endpoint_labels_clusters(self):
+        """ref: phase 6 follow-up. each cluster carries a label drawn from
+        the most-followed member's username."""
+        client = APIClient()
+        r = client.get("/api/social/communities/")
+        body = r.json()
+        labels = {c["label"] for c in body["components"] if c["label"]}
+        # bob and carol both have in-degree 1; alice has 0. so the connected
+        # cluster's label must come from bob or carol, never alice.
+        connected_label = next(
+            c["label"] for c in body["components"] if c["size"] == 3
+        )
+        self.assertIn(connected_label, {"bob", "carol"})
+        # the dave isolate is also labeled (his own username)
+        self.assertIn("dave", labels)

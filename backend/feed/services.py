@@ -49,15 +49,35 @@ def build_home_feed(user_id: int,
     materialize the personalized timeline for a user.
 
     ref: lab 3 ex 3 priority queue, lab 1 linear time slicing.
+
+    cold start fallback: when the user follows nobody we surface the lab 2
+    recommender output so the feed is never empty. if even that has no
+    matches (e.g. the user has zero likes too) we drop to the user's own
+    recent posts as a last resort.
     """
     from social.services import get_following
 
     following_ids = get_following(user_id)
+    cold_start_strategy = None
     if not following_ids:
-        # cold start: surface the user's own recent posts so the feed is not empty
-        following_ids = [user_id]
+        # try recommender driven cold start (lab 2 jaccard)
+        try:
+            from search.services import recommend_posts
+            recommended = recommend_posts(user_id, strategy="jaccard", max_results=limit)
+        except Exception:
+            recommended = []
+        if recommended:
+            recommended_ids = [pid for pid, _ in recommended]
+            posts = list(_post_window_qs(hours=window_hours).filter(id__in=recommended_ids))
+            cold_start_strategy = "recommender_jaccard"
+        else:
+            posts = []
+            cold_start_strategy = "self"
+        if not posts:
+            following_ids = [user_id]
 
-    posts = list(_post_window_qs(hours=window_hours, author_ids=following_ids))
+    if cold_start_strategy is None or cold_start_strategy == "self":
+        posts = list(_post_window_qs(hours=window_hours, author_ids=following_ids))
     if not posts:
         return []
 

@@ -4,6 +4,8 @@ from django.conf.urls.static import static
 from django.urls import include, path
 from rest_framework.authtoken.views import obtain_auth_token
 
+from .ops_views import OpsDashboardView
+
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/auth/token/", obtain_auth_token, name="api_token_auth"),
@@ -16,6 +18,7 @@ urlpatterns = [
     path("api/reels/", include("reels.urls")),
     path("api/analytics/", include("analytics.urls")),
     path("api/geo/", include("geo.urls")),
+    path("api/ops/dashboard/", OpsDashboardView.as_view(), name="ops_dashboard"),
 ]
 
 if settings.DEBUG:

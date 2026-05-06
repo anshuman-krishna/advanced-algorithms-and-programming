@@ -8,6 +8,7 @@ algorithm helpers directly.
 
 from __future__ import annotations
 
+import threading
 from typing import Dict, List, Optional, Set, Tuple
 
 from django.contrib.auth import get_user_model
@@ -22,6 +23,19 @@ from algorithms import (
 from algorithms.scoring import score_batch
 
 User = get_user_model()
+
+# in-process cache for the lab 5 generalized tree serialization.
+# rebuilding the tree per request hits Category, PostCategory, Like, and Post.
+# we hold the serialized root behind a lock and let signals invalidate it.
+_explore_cache_lock = threading.Lock()
+_explore_cache: Optional[dict] = None
+
+
+def invalidate_explore_cache() -> None:
+    """called by signals when category, post-category, or like rows change."""
+    global _explore_cache
+    with _explore_cache_lock:
+        _explore_cache = None
 
 
 # inverted index passthroughs
@@ -123,11 +137,21 @@ def category_engagement(category_id: int) -> dict:
 
 
 def explore_tree() -> dict:
-    """full explore taxonomy with aggregated engagement per node."""
+    """full explore taxonomy with aggregated engagement per node.
+
+    served from an in-memory cache; signals invalidate the cache when the
+    underlying tables change so subsequent reads pay the rebuild cost only
+    when the data has actually moved.
+    """
+    global _explore_cache
+    with _explore_cache_lock:
+        if _explore_cache is not None:
+            return _explore_cache
     root = build_category_tree()
-    if root is None:
-        return {}
-    return cat.serialize(root)
+    serialized = cat.serialize(root) if root is not None else {}
+    with _explore_cache_lock:
+        _explore_cache = serialized
+    return serialized
 
 
 # recommender

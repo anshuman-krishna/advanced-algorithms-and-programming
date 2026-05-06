@@ -34,17 +34,28 @@ class ReelsPageView(APIView):
         except ValueError:
             return Response({"detail": "limit must be an integer"}, status=400)
         anchor = None
+        resumed = False
         if cursor:
             try:
                 anchor = int(cursor)
             except ValueError:
                 return Response({"detail": "cursor must be an integer"}, status=400)
+        elif request.user.is_authenticated:
+            # no explicit cursor; resume the user's last position so they land
+            # on the post they left on. ref: phase 5 follow-up.
+            stored = services.cursor_for_user(request.user.id)
+            if stored is not None:
+                anchor = stored
+                resumed = True
         items, next_cursor = services.page(anchor, direction, limit)
+        if request.user.is_authenticated and next_cursor is not None:
+            services.set_cursor_for_user(request.user.id, next_cursor)
         return Response({
             "results": items,
             "next_cursor": next_cursor,
             "direction": direction,
             "size": services.stats()["size"],
+            "resumed": resumed,
         })
 
 
@@ -73,6 +84,9 @@ class ReelsViewedView(APIView):
         node = services.track_view(post_id)
         if node is None:
             return Response({"detail": "post not in reels list"}, status=404)
+        # remember the last viewed post so the next /page/ call without a
+        # cursor can resume from this position. ref: phase 5 follow-up.
+        services.set_cursor_for_user(request.user.id, post_id)
         return Response({"post_id": post_id, "views": node["views"]})
 
 

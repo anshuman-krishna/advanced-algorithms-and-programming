@@ -34,6 +34,32 @@ _hydrated = False
 # typical scrolling session.
 DEFAULT_WINDOW = 200
 
+# per-user dll cursor so a logged-in user resuming reels lands on the same
+# post they left on rather than at head. ref: phase 5 follow-up. we keep
+# this in process memory; the front end may also pass an explicit cursor and
+# that always wins over the stored one.
+_session_cursors: Dict[int, Any] = {}
+_session_lock = threading.Lock()
+
+
+def cursor_for_user(user_id: int) -> Optional[Any]:
+    if not user_id:
+        return None
+    with _session_lock:
+        return _session_cursors.get(user_id)
+
+
+def set_cursor_for_user(user_id: int, cursor: Any) -> None:
+    if not user_id or cursor is None:
+        return
+    with _session_lock:
+        _session_cursors[user_id] = cursor
+
+
+def clear_cursor_for_user(user_id: int) -> None:
+    with _session_lock:
+        _session_cursors.pop(user_id, None)
+
 
 def _post_payload(post_id: int, *, author_id: int, author_username: str,
                   caption: str, image_url: Optional[str], like_count: int,

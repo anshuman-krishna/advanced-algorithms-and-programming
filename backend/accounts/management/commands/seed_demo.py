@@ -1,7 +1,7 @@
 """
 seed a rich pet themed demo network so every screen has varied, non repetitive
 data to screenshot. rebuilds the demo users, posts, comments, likes, follows,
-hashtags, category links, and pet photos each run.
+hashtags, category links, notifications, and pet photos each run.
 
 usage: python manage.py seed_demo
 
@@ -11,6 +11,8 @@ lab 7 quadtree hydrates straight from the db. each post points at a stable cat o
 dog photo that matches the account, so the feed shows real images. likes and posts
 are backdated across the last few weeks, so the lab 8 segment tree analytics and
 the recency side of the feed score both show a spread instead of one flat day.
+notifications are seeded directly so the activity inbox is rich the moment you log
+in, without waiting on a queue drain.
 """
 
 from datetime import timedelta
@@ -21,6 +23,7 @@ from django.db import transaction
 from django.utils import timezone
 from django.utils.text import slugify
 
+from notifications.models import Notification
 from posts.models import Comment, CommentLike, Like, Post
 from posts.pet_images import species_image
 from search.models import Category, PostCategory
@@ -44,6 +47,16 @@ DEMO_USERS = [
     ("judy", "judy@example.com", "live music and a husky · pepper", "dog"),
     ("mallory", "mallory@example.com", "keyboards and a kitten · tofu", "cat"),
     ("niaj", "niaj@example.com", "slow travels with daisy the doodle", "dog"),
+    # studio crew, a third community
+    ("quinn", "quinn@example.com", "film photos · pixel the siamese", "cat"),
+    ("ravi", "ravi@example.com", "street food and ladoo the beagle", "dog"),
+    ("stan", "stan@example.com", "darkroom prints · marble the maine coon", "cat"),
+    ("tara", "tara@example.com", "runner with comet the vizsla", "dog"),
+    # two loose pairs, good targets for following someone by hand
+    ("uma", "uma@example.com", "potter · clay the persian", "cat"),
+    ("wendy", "wendy@example.com", "baker · yeast the sphynx", "cat"),
+    ("victor", "victor@example.com", "van life with two huskies", "dog"),
+    ("xena", "xena@example.com", "agility trials · flash the border collie", "dog"),
 ]
 
 # author, caption, location, lat, lng, days ago, leaf category, like count.
@@ -70,6 +83,25 @@ DEMO_POSTS = [
     ("judy", "pepper beach day, sand absolutely everywhere #husky #beachday", "Mumbai", 19.0760, 72.8777, 4, "beachday", 7),
     ("heidi", "willow got a haircut and is very judgmental about it #calico #groomday", "Kyoto", 35.0116, 135.7681, 3, "haircuts", 6),
     ("niaj", "daisy is fostering two pups this week #fosterdog #adoptable", "Barcelona", 41.3851, 2.1734, 1, "fosters", 9),
+    # studio crew posts
+    ("quinn", "pixel judging my latest film scans #catsofinstagram #siamese", "Madrid", 40.4168, -3.7038, 23, "tabby", 8),
+    ("ravi", "ladoo waiting outside the dosa stall #dogsofinstagram #beagle", "Chennai", 13.0827, 80.2707, 21, "puppies", 7),
+    ("stan", "marble the maine coon, all sixteen pounds of him #mainecoon #catsofinsta", "Rome", 41.9028, 12.4964, 20, "ragdoll", 9),
+    ("tara", "comet finished the ten k with me #vizsla #rundog", "Dublin", 53.3498, -6.2603, 18, "hikes", 6),
+    ("quinn", "darkroom buddy clocked in for the night #siamese #filmphotography", "Vienna", 48.2082, 16.3738, 15, "tabby", 7),
+    ("ravi", "ladoo got the last bite, fair enough #beagle #foodie", "Prague", 50.0755, 14.4378, 13, "retriever", 8),
+    ("stan", "marble versus the cardboard box, the box lost #mainecoon #catloaf", "Helsinki", 60.1699, 24.9384, 11, "ragdoll", 6),
+    ("tara", "comet trail selfie, ears fully up #vizsla #traildog", "Edinburgh", 55.9533, -3.1883, 9, "hikes", 7),
+    # loose pair posts
+    ("uma", "clay the persian inspecting the fresh mugs #persiancat #pottery", "Valencia", 39.4699, -0.3763, 16, "kittens", 6),
+    ("wendy", "yeast the sphynx supervising the sourdough #sphynx #baking", "Copenhagen", 55.6761, 12.5683, 12, "kittens", 7),
+    ("victor", "two huskies, one tiny van, zero regrets #husky #vanlife", "Bergen", 60.3913, 5.3221, 10, "husky", 8),
+    ("xena", "flash cleared the weave poles clean #bordercollie #agility", "Wellington", -41.2865, 174.7762, 6, "puppies", 9),
+    # a few fresh ones from the original crew so the top of the feed feels active
+    ("bob", "max made a new friend at the cafe #goldenretriever #dogfriends", "Singapore", 1.3521, 103.8198, 5, "retriever", 7),
+    ("grace", "clementine and the second monitor life #tabbycat #wfh", "Bangkok", 13.7563, 100.5018, 4, "tabby", 8),
+    ("frank", "rufus golden hour, part two #rescuedog #goldenhour", "Mexico City", 19.4326, -99.1332, 2, "adoptable", 9),
+    ("niaj", "daisy says goodnight from the hostel #goldendoodle #travelpup", "Vancouver", 49.2827, -123.1207, 1, "fosters", 8),
 ]
 
 # leaf category to its parent, mirrors seed_categories so the explore tree lines up
@@ -81,9 +113,9 @@ CATEGORY_PARENT = {
     "hikes": "outdoors", "beachday": "outdoors",
 }
 
-# two clear circles with no bridge between them, so dfs surfaces two communities
-# and bfs still finds a chain inside each. the cat crew and the dog park. mutual
-# pairs, expanded both ways.
+# three clear circles plus two loose pairs, so dfs surfaces several communities
+# and bfs still finds a chain inside each. pairs are seeded both ways so the
+# undirected friendship view treats them as mutual.
 FOLLOW_PAIRS = [
     # cat crew
     ("alice", "dave"), ("alice", "eve"), ("alice", "grace"),
@@ -91,6 +123,11 @@ FOLLOW_PAIRS = [
     # dog park
     ("bob", "carol"), ("bob", "frank"), ("bob", "niaj"),
     ("carol", "ivan"), ("frank", "judy"), ("ivan", "niaj"), ("judy", "niaj"),
+    # studio crew
+    ("quinn", "ravi"), ("quinn", "stan"), ("ravi", "tara"), ("stan", "tara"),
+    # two loose pairs
+    ("uma", "wendy"),
+    ("victor", "xena"),
 ]
 
 # a deep, branching thread on the first post so the thread screen shows real
@@ -112,15 +149,49 @@ DEMO_THREAD = [
     ("c14", "judy", "pepper would just howl at the sunbeam", "c12"),
 ]
 
-# flat comments on other posts so any post you open has a thread.
+# flat comments on other posts so any post you open already has a thread.
+# index is one based into DEMO_POSTS.
 DEMO_FLAT_COMMENTS = [
     (2, "alice", "max is the goodest boy, no notes"),
     (2, "grace", "that face deserves the ball"),
     (3, "bob", "clementine is so judgmental and i love it"),
+    (5, "eve", "mochi the synth tester, a legend"),
     (8, "carol", "biscuit nation rise up"),
     (8, "judy", "those legs are everything"),
+    (9, "alice", "shadow and luna would be zoomie partners"),
     (12, "frank", "daisy is pure joy in dog form"),
     (16, "niaj", "dog park royalty right there"),
+    (17, "carol", "throwback adoption posts get me every time"),
+    (22, "alice", "pixel has the best resting judge face"),
+    (23, "tara", "ladoo deserves the whole dosa honestly"),
+    (24, "quinn", "marble is basically a small lion"),
+    (26, "stan", "the darkroom cat union approves"),
+    (30, "wendy", "clay supervising quality control, respect"),
+    (33, "victor", "flash is faster than my two combined"),
+    (34, "frank", "cafe dogs making friends, the dream"),
+    (36, "grace", "golden hour rufus never misses"),
+]
+
+# recipient, actor, kind, post index (one based into DEMO_POSTS or none),
+# comment key (or none), is_priority, is_read, hours ago. seeded straight into
+# the table so the inbox is full the moment alice (or bob, grace) logs in.
+DEMO_NOTIFICATIONS = [
+    ("alice", "mallory", "comment", 13, None, False, False, 2),
+    ("alice", "bob", "like", 1, None, False, False, 3),
+    ("alice", "grace", "comment", 1, "c2", False, False, 5),
+    ("alice", "bob", "reply", 1, "c6", True, False, 7),
+    ("alice", "dave", "follow", None, None, False, False, 9),
+    ("alice", "niaj", "like", 13, None, False, True, 26),
+    ("alice", "frank", "comment", 1, "c4", False, True, 30),
+    ("alice", "grace", "like", 1, None, False, True, 40),
+    ("alice", "heidi", "follow", None, None, False, True, 50),
+    ("alice", "eve", "like", 13, None, False, True, 62),
+    ("bob", "alice", "like", 2, None, False, False, 4),
+    ("bob", "grace", "comment", 2, None, False, False, 8),
+    ("bob", "carol", "follow", None, None, False, True, 28),
+    ("grace", "mallory", "comment", 3, None, True, False, 1),
+    ("grace", "alice", "like", 3, None, False, False, 6),
+    ("grace", "dave", "follow", None, None, False, False, 12),
 ]
 
 
@@ -143,6 +214,7 @@ class Command(BaseCommand):
             else:
                 user.email = email
                 user.bio = bio
+                user.set_password("password123")
             user.save()
             users[username] = user
             species[username] = kind
@@ -151,6 +223,7 @@ class Command(BaseCommand):
         # stack duplicate posts. deletes cascade to likes, comments, and links,
         # and the delete signals keep the search index and quadtree consistent.
         demo_ids = [u.id for u in users.values()]
+        Notification.objects.filter(recipient_id__in=demo_ids).delete()
         Follow.objects.filter(follower_id__in=demo_ids, following_id__in=demo_ids).delete()
         Post.objects.filter(author_id__in=demo_ids).delete()
 
@@ -182,19 +255,23 @@ class Command(BaseCommand):
 
             posts.append((post, days_ago, like_count))
 
+        post_objs = [p for (p, _, _) in posts]
         self._seed_likes(users, posts, now)
-        thread_post_id = self._seed_thread(users, posts[0][0])
+        thread_post_id, thread_nodes = self._seed_thread(users, posts[0][0])
         self._seed_flat_comments(users, posts)
         self._seed_follows(users)
+        self._seed_notifications(users, post_objs, thread_nodes, now)
 
         self.stdout.write(self.style.SUCCESS(
-            "seeded {u} users, {p} posts, {c} comments, {l} likes, {f} follow edges. "
-            "open post {tid} on the thread tab for the deep comment tree.".format(
+            "seeded {u} users, {p} posts, {c} comments, {l} likes, {f} follow edges, "
+            "{n} notifications. open post {tid} on the thread tab for the deep "
+            "comment tree.".format(
                 u=len(users),
                 p=Post.objects.filter(author_id__in=demo_ids).count(),
                 c=Comment.objects.count(),
                 l=Like.objects.count(),
                 f=Follow.objects.filter(follower_id__in=demo_ids).count(),
+                n=Notification.objects.count(),
                 tid=thread_post_id,
             )
         ))
@@ -234,7 +311,9 @@ class Command(BaseCommand):
                 Like.objects.filter(pk=like.pk).update(created_at=stamp)
 
     def _seed_thread(self, users, post):
-        """build the deep branching thread and like a few of its comments."""
+        """build the deep branching thread and like a few of its comments.
+        returns the post id and the key -> comment node map so the notification
+        seeder can point at real comment ids."""
         nodes = {}
         for key, author, body, parent_key in DEMO_THREAD:
             parent = nodes.get(parent_key) if parent_key else None
@@ -251,7 +330,7 @@ class Command(BaseCommand):
         for key, likers in comment_likes.items():
             for name in likers:
                 CommentLike.objects.get_or_create(user=users[name], comment=nodes[key])
-        return post.id
+        return post.id, nodes
 
     def _seed_flat_comments(self, users, posts):
         by_index = {i + 1: post for i, (post, _, _) in enumerate(posts)}
@@ -269,3 +348,31 @@ class Command(BaseCommand):
             Follow.objects.get_or_create(
                 follower=users[target], following=users[follower]
             )
+
+    def _seed_notifications(self, users, post_objs, thread_nodes, now):
+        """write notification rows straight to the table so the inbox is full
+        immediately. ref: lab 3 ex 2 produces these the same way at runtime, this
+        just pre populates them for the demo."""
+        for recipient, actor, kind, post_idx, comment_key, prio, read, hours in DEMO_NOTIFICATIONS:
+            if recipient not in users or actor not in users:
+                continue
+            post_id = None
+            if post_idx is not None and 1 <= post_idx <= len(post_objs):
+                post_id = post_objs[post_idx - 1].id
+            comment_id = None
+            if comment_key is not None and comment_key in thread_nodes:
+                comment_id = thread_nodes[comment_key].id
+                if post_id is None:
+                    post_id = thread_nodes[comment_key].post_id
+            n = Notification.objects.create(
+                recipient=users[recipient],
+                actor=users[actor],
+                kind=kind,
+                post_id=post_id,
+                comment_id=comment_id,
+                is_priority=prio,
+                is_read=read,
+                delivered_at=now,
+            )
+            stamp = now - timedelta(hours=hours)
+            Notification.objects.filter(pk=n.pk).update(created_at=stamp)

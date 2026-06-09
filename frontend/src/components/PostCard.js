@@ -1,4 +1,6 @@
 // post card with story-ring avatar, soft hierarchy, and a tinted like button.
+// tapping the image, the caption, or "view comments" opens the full post; the
+// username and avatar open that person's profile. liking gates behind login.
 // the placeholder block uses a soft gradient so a missing image still feels
 // alive rather than a blank square.
 import React, { useCallback, useState } from 'react';
@@ -6,6 +8,7 @@ import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { api } from '../api/client';
+import { useApp } from '../context/AppContext';
 import {
   colors,
   gradientDir,
@@ -29,11 +32,18 @@ function relative(ts) {
 }
 
 export default function PostCard({ post, onComment }) {
+  const { requireAuth, openPost, openProfile } = useApp();
   const [liked, setLiked] = useState(Boolean(post.is_liked));
   const [count, setCount] = useState(post.like_count || 0);
   const [busy, setBusy] = useState(false);
 
+  const username = post.author?.username || 'unknown';
+  const openThis = useCallback(() => openPost(post.id, post), [openPost, post]);
+  const goProfile = useCallback(() => openProfile(username), [openProfile, username]);
+  const handleComment = onComment || openThis;
+
   const toggleLike = useCallback(async () => {
+    if (!requireAuth()) return;
     if (busy) return;
     const next = !liked;
     setLiked(next);
@@ -52,41 +62,44 @@ export default function PostCard({ post, onComment }) {
     } finally {
       setBusy(false);
     }
-  }, [busy, liked, post.id]);
+  }, [busy, liked, post.id, requireAuth]);
 
-  const username = post.author?.username || 'unknown';
   return (
     <View style={styles.card}>
       <View style={styles.header}>
-        <AvatarRing username={username} size={38} ringWidth={2} />
-        <View style={styles.headerText}>
-          <Text style={[typography.bodyStrong, styles.username]}>{username}</Text>
-          {post.location ? (
-            <Text style={[typography.caption, styles.location]}>{post.location}</Text>
-          ) : null}
-        </View>
+        <Pressable onPress={goProfile} hitSlop={4} style={styles.headerTap}>
+          <AvatarRing username={username} imageUrl={post.author?.avatar} size={38} ringWidth={2} />
+          <View style={styles.headerText}>
+            <Text style={[typography.bodyStrong, styles.username]}>{username}</Text>
+            {post.location ? (
+              <Text style={[typography.caption, styles.location]}>{post.location}</Text>
+            ) : null}
+          </View>
+        </Pressable>
         <Text style={[typography.caption, styles.timestamp]}>
           {relative(post.created_at)}
         </Text>
       </View>
-      {post.image ? (
-        <Image
-          source={{ uri: post.image }}
-          style={styles.image}
-          resizeMode="cover"
-        />
-      ) : (
-        <LinearGradient
-          colors={[colors.surfaceMuted, '#eaeaef']}
-          start={gradientDir.diagonal.start}
-          end={gradientDir.diagonal.end}
-          style={styles.imagePlaceholder}
-        >
-          <Text style={[typography.title, styles.placeholderText]}>
-            {(post.caption || username).slice(0, 1).toUpperCase()}
-          </Text>
-        </LinearGradient>
-      )}
+      <Pressable onPress={openThis}>
+        {post.image ? (
+          <Image
+            source={{ uri: post.image }}
+            style={styles.image}
+            resizeMode="cover"
+          />
+        ) : (
+          <LinearGradient
+            colors={[colors.surfaceMuted, '#eaeaef']}
+            start={gradientDir.diagonal.start}
+            end={gradientDir.diagonal.end}
+            style={styles.imagePlaceholder}
+          >
+            <Text style={[typography.title, styles.placeholderText]}>
+              {(post.caption || username).slice(0, 1).toUpperCase()}
+            </Text>
+          </LinearGradient>
+        )}
+      </Pressable>
       <View style={styles.actions}>
         <Pressable onPress={toggleLike} hitSlop={8} style={styles.actionBtn}>
           {liked ? (
@@ -99,7 +112,7 @@ export default function PostCard({ post, onComment }) {
             </Text>
           )}
         </Pressable>
-        <Pressable onPress={onComment} hitSlop={8} style={styles.actionBtn}>
+        <Pressable onPress={handleComment} hitSlop={8} style={styles.actionBtn}>
           <Text style={[typography.bodyStrong, styles.actionLabel, { color: colors.text }]}>
             comment
           </Text>
@@ -110,17 +123,20 @@ export default function PostCard({ post, onComment }) {
           items={[
             { value: count, label: count === 1 ? 'like' : 'likes' },
             { value: post.comment_count || 0, label: 'comments' },
+            { value: post.share_count || 0, label: 'shares' },
           ]}
           size="md"
         />
         {post.caption ? (
-          <Text style={[typography.body, styles.caption]} numberOfLines={3}>
-            <Text style={typography.bodyStrong}>{username} </Text>
-            {post.caption}
-          </Text>
+          <Pressable onPress={openThis}>
+            <Text style={[typography.body, styles.caption]} numberOfLines={3}>
+              <Text style={typography.bodyStrong}>{username} </Text>
+              {post.caption}
+            </Text>
+          </Pressable>
         ) : null}
         {post.comment_count ? (
-          <Pressable onPress={onComment}>
+          <Pressable onPress={handleComment}>
             <Text style={[typography.caption, styles.commentLink]}>
               view all {post.comment_count} comments
             </Text>
@@ -142,6 +158,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm,
   },
+  headerTap: { flex: 1, flexDirection: 'row', alignItems: 'center' },
   headerText: { flex: 1, marginLeft: spacing.md },
   username: { color: colors.text },
   location: { color: colors.muted, marginTop: 1 },

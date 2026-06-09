@@ -6,13 +6,13 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   FlatList,
   Pressable,
-  RefreshControl,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 
 import { api } from '../api/client';
+import { useApp } from '../context/AppContext';
 import AvatarRing from '../components/AvatarRing';
 import EmptyState from '../components/EmptyState';
 import GradientButton from '../components/GradientButton';
@@ -41,6 +41,7 @@ function formatRel(ts) {
 }
 
 export default function NotificationsScreen() {
+  const { openPost, openProfile } = useApp();
   const [items, setItems] = useState([]);
   const [stats, setStats] = useState({ pending: 0, processed: 0 });
   const [loading, setLoading] = useState(false);
@@ -87,6 +88,21 @@ export default function NotificationsScreen() {
 
   const unread = items.filter((n) => !n.is_read).length;
 
+  // a like / comment / reply routes to the post it happened on; a follow opens
+  // the actor's profile. tapping the avatar always opens the actor's profile.
+  const routeFor = useCallback(
+    (n) => {
+      if (n.kind === 'follow') {
+        openProfile(n.actor_username);
+      } else if (n.post_id) {
+        openPost(n.post_id);
+      } else {
+        openProfile(n.actor_username);
+      }
+    },
+    [openPost, openProfile],
+  );
+
   return (
     <ScreenContainer>
       <View style={styles.header}>
@@ -111,24 +127,19 @@ export default function NotificationsScreen() {
       <FlatList
         data={items}
         keyExtractor={(n) => String(n.id)}
-        refreshControl={
-          <RefreshControl
-            refreshing={loading}
-            onRefresh={load}
-            tintColor={colors.primary}
-            colors={[colors.primary]}
-          />
-        }
         contentContainerStyle={styles.list}
         renderItem={({ item }) => (
-          <View
+          <Pressable
             style={[
               styles.row,
               !item.is_read && styles.rowUnread,
               item.is_priority && styles.rowPriority,
             ]}
+            onPress={() => routeFor(item)}
           >
-            <AvatarRing username={item.actor_username || ''} size={40} />
+            <Pressable onPress={() => openProfile(item.actor_username)} hitSlop={4}>
+              <AvatarRing username={item.actor_username || ''} size={40} />
+            </Pressable>
             <View style={styles.body}>
               <Text style={[typography.body, { color: colors.text }]} numberOfLines={2}>
                 <Text style={typography.bodyStrong}>@{item.actor_username} </Text>
@@ -151,7 +162,7 @@ export default function NotificationsScreen() {
               </View>
             </View>
             {!item.is_read ? <GradientDot size={10} /> : null}
-          </View>
+          </Pressable>
         )}
         ListEmptyComponent={
           !loading ? (

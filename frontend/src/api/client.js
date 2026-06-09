@@ -52,6 +52,8 @@ export const api = {
   likePost: (id) => request(`/api/posts/posts/${id}/like/`, { method: 'POST' }),
   unlikePost: (id) => request(`/api/posts/posts/${id}/unlike/`, { method: 'POST' }),
   listUsers: () => request('/api/accounts/users/'),
+  getUser: (identifier) => request(`/api/accounts/users/${identifier}/`),
+  userPosts: (authorId) => request(`/api/posts/posts/?author=${authorId}`),
   me: () => request('/api/accounts/users/me/'),
   login: (username, password) =>
     request('/api/auth/token/', {
@@ -136,6 +138,15 @@ export const api = {
     ),
   nichePosts: (identifier, limit = 20) =>
     request(`/api/social/users/${identifier}/niche-posts/?limit=${limit}`),
+  relationship: (a, b) =>
+    request(`/api/social/relationship/${encodeURIComponent(a)}/${encodeURIComponent(b)}/`),
+  followers: (identifier) => request(`/api/social/users/${identifier}/followers/`),
+  following: (identifier) => request(`/api/social/users/${identifier}/following/`),
+  toggleFollow: (identifier) =>
+    request(`/api/social/follows/toggle/${encodeURIComponent(identifier)}/`, { method: 'POST' }),
+  suggestions: (limit = 10) => request(`/api/social/suggestions/?limit=${limit}`),
+  hashtagPosts: (name) =>
+    request(`/api/search/hashtag/${encodeURIComponent(name)}/posts/`),
   reach: (identifier, maxDepth) => {
     const qs = maxDepth != null ? `?max_depth=${maxDepth}` : '';
     return request(`/api/social/users/${identifier}/reach/${qs}`);

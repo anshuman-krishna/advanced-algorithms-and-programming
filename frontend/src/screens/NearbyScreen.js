@@ -4,6 +4,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   FlatList,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -12,6 +13,7 @@ import {
 } from 'react-native';
 
 import { api } from '../api/client';
+import { useApp } from '../context/AppContext';
 import AvatarRing from '../components/AvatarRing';
 import DistanceBadge from '../components/DistanceBadge';
 import EmptyState from '../components/EmptyState';
@@ -35,6 +37,7 @@ const PRESETS = [
 ];
 
 export default function NearbyScreen() {
+  const { openPost, openProfile } = useApp();
   const [lat, setLat] = useState('38.72');
   const [lng, setLng] = useState('-9.14');
   const [radius, setRadius] = useState('20');
@@ -139,11 +142,16 @@ export default function NearbyScreen() {
         keyExtractor={(item) => String(item.post_id || item.key)}
         contentContainerStyle={styles.list}
         renderItem={({ item }) => (
-          <View style={styles.row}>
-            <AvatarRing username={item.author_username || ''} size={42} />
+          <Pressable style={styles.row} onPress={() => openPost(item.post_id)}>
+            <Pressable onPress={() => openProfile(item.author_username)} hitSlop={4}>
+              <AvatarRing username={item.author_username || ''} size={42} />
+            </Pressable>
             <View style={styles.body}>
               <View style={styles.bodyHead}>
-                <Text style={[typography.bodyStrong, { color: colors.text }]}>
+                <Text
+                  style={[typography.bodyStrong, { color: colors.text }]}
+                  onPress={() => openProfile(item.author_username)}
+                >
                   @{item.author_username || 'unknown'}
                 </Text>
                 <DistanceBadge distance={distanceFor(item)} />
@@ -155,7 +163,7 @@ export default function NearbyScreen() {
                 {item.location || ''} . ({item.y?.toFixed(2)}, {item.x?.toFixed(2)})
               </Text>
             </View>
-          </View>
+          </Pressable>
         )}
         ListEmptyComponent={
           !loading ? (

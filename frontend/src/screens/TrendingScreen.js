@@ -5,7 +5,6 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
   Pressable,
-  RefreshControl,
   StyleSheet,
   Text,
   View,
@@ -13,6 +12,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { api } from '../api/client';
+import { useApp } from '../context/AppContext';
 import AvatarRing from '../components/AvatarRing';
 import EmptyState from '../components/EmptyState';
 import GradientProgress from '../components/GradientProgress';
@@ -30,6 +30,7 @@ import {
 } from '../theme';
 
 export default function TrendingScreen() {
+  const { openPost, openProfile } = useApp();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -75,21 +76,18 @@ export default function TrendingScreen() {
         keyExtractor={(item) => String(item.post_id)}
         ItemSeparatorComponent={() => <SectionDivider inset={spacing.lg} />}
         contentContainerStyle={styles.list}
-        refreshControl={
-          <RefreshControl
-            refreshing={loading}
-            onRefresh={load}
-            tintColor={colors.primary}
-            colors={[colors.primary]}
-          />
-        }
         renderItem={({ item, index }) => (
-          <View style={styles.row}>
-            <AvatarRing username={item.author_username || ''} size={42} />
+          <Pressable style={styles.row} onPress={() => openPost(item.post_id)}>
+            <Pressable onPress={() => openProfile(item.author_username)} hitSlop={4}>
+              <AvatarRing username={item.author_username || ''} size={42} />
+            </Pressable>
             <View style={styles.body}>
               <View style={styles.headRow}>
                 <RankBadge rank={index + 1} />
-                <Text style={[typography.bodyStrong, styles.author]}>
+                <Text
+                  style={[typography.bodyStrong, styles.author]}
+                  onPress={() => openProfile(item.author_username)}
+                >
                   @{item.author_username}
                 </Text>
               </View>
@@ -117,7 +115,7 @@ export default function TrendingScreen() {
                 />
               </View>
             </View>
-          </View>
+          </Pressable>
         )}
         ListEmptyComponent={
           !loading ? (

@@ -5,7 +5,6 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
   Pressable,
-  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -13,6 +12,7 @@ import {
 } from 'react-native';
 
 import { api } from '../api/client';
+import { useApp } from '../context/AppContext';
 import AvatarRing from '../components/AvatarRing';
 import EmptyState from '../components/EmptyState';
 import CyclingGradientText from '../components/CyclingGradientText';
@@ -26,6 +26,7 @@ import SectionDivider from '../components/SectionDivider';
 import { colors, spacing, typography } from '../theme';
 
 export default function HomeScreen() {
+  const { openStory, openPost } = useApp();
   const [posts, setPosts] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -81,7 +82,10 @@ export default function HomeScreen() {
         ListHeaderComponent={
           <View>
             {trendingReel ? (
-              <View style={styles.trendingReelWrap}>
+              <Pressable
+                style={styles.trendingReelWrap}
+                onPress={() => openPost(trendingReel.id || trendingReel.post_id, trendingReel)}
+              >
                 <GradientCardBorder>
                   <View style={styles.trendingReel}>
                     <View style={{ flex: 1 }}>
@@ -109,7 +113,7 @@ export default function HomeScreen() {
                     />
                   </View>
                 </GradientCardBorder>
-              </View>
+              </Pressable>
             ) : null}
             {stories.length ? (
               <View style={styles.storyRail}>
@@ -118,8 +122,12 @@ export default function HomeScreen() {
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.storyContent}
               >
-                {stories.map((u) => (
-                  <View key={u.id} style={styles.story}>
+                {stories.map((u, i) => (
+                  <Pressable
+                    key={u.id}
+                    style={styles.story}
+                    onPress={() => openStory(stories, i)}
+                  >
                     <AvatarRing
                       username={u.username}
                       imageUrl={u.avatar}
@@ -132,7 +140,7 @@ export default function HomeScreen() {
                     >
                       {u.username}
                     </Text>
-                  </View>
+                  </Pressable>
                 ))}
               </ScrollView>
               <SectionDivider />
@@ -141,14 +149,6 @@ export default function HomeScreen() {
           </View>
         }
         contentContainerStyle={styles.list}
-        refreshControl={
-          <RefreshControl
-            refreshing={loading}
-            onRefresh={load}
-            tintColor={colors.primary}
-            colors={[colors.primary]}
-          />
-        }
         ListEmptyComponent={
           !loading ? (
             <EmptyState

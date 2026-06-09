@@ -1,6 +1,7 @@
 # testing and validation
 testing/
 .claude/
+algos-used.md
 
 # python
 __pycache__/

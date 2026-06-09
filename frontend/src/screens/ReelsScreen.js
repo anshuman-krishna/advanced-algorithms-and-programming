@@ -8,7 +8,6 @@ import {
   FlatList,
   Image,
   Pressable,
-  RefreshControl,
   StyleSheet,
   Text,
   View,
@@ -16,6 +15,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { api } from '../api/client';
+import { useApp } from '../context/AppContext';
 import AvatarRing from '../components/AvatarRing';
 import EmptyState from '../components/EmptyState';
 import GradientButton from '../components/GradientButton';
@@ -102,14 +102,6 @@ export default function ReelsScreen() {
         onEndReachedThreshold={0.6}
         onViewableItemsChanged={onViewable}
         viewabilityConfig={viewabilityConfig}
-        refreshControl={
-          <RefreshControl
-            refreshing={loading}
-            onRefresh={refresh}
-            tintColor={colors.primary}
-            colors={[colors.primary]}
-          />
-        }
         renderItem={({ item, index }) => (
           <ReelCard item={item} index={index} height={cardHeight} />
         )}
@@ -131,6 +123,38 @@ export default function ReelsScreen() {
 }
 
 function ReelCard({ item, height }) {
+  const { requireAuth, openProfile, openPost } = useApp();
+  const [following, setFollowing] = useState(false);
+  const [liked, setLiked] = useState(Boolean(item.is_liked));
+  const [likes, setLikes] = useState(item.like_count || 0);
+
+  const author = item.author_username || '';
+
+  const follow = useCallback(async () => {
+    if (!requireAuth()) return;
+    const next = !following;
+    setFollowing(next);
+    try {
+      await api.toggleFollow(author);
+    } catch (e) {
+      setFollowing(!next);
+    }
+  }, [following, author, requireAuth]);
+
+  const toggleLike = useCallback(async () => {
+    if (!requireAuth()) return;
+    const next = !liked;
+    setLiked(next);
+    setLikes((n) => n + (next ? 1 : -1));
+    try {
+      if (next) await api.likePost(item.id);
+      else await api.unlikePost(item.id);
+    } catch (e) {
+      setLiked(!next);
+      setLikes((n) => n + (next ? -1 : 1));
+    }
+  }, [liked, item.id, requireAuth]);
+
   return (
     <View style={[styles.card, { height }]}>
       {item.image_url ? (
@@ -143,7 +167,7 @@ function ReelCard({ item, height }) {
           style={styles.background}
         >
           <Text style={styles.bgGlyph}>
-            {(item.caption || item.author_username || '?').slice(0, 1).toUpperCase()}
+            {(item.caption || author || '?').slice(0, 1).toUpperCase()}
           </Text>
         </LinearGradient>
       )}
@@ -156,29 +180,45 @@ function ReelCard({ item, height }) {
       />
       <View style={styles.overlay}>
         <View style={styles.author}>
-          <AvatarRing username={item.author_username || ''} size={42} />
-          <View style={styles.authorText}>
-            <Text style={[typography.bodyStrong, styles.authorName]}>
-              @{item.author_username}
-            </Text>
-            <Text style={[typography.caption, styles.timestamp]}>
-              {formatRel(item.created_at)}
-            </Text>
-          </View>
-          <Pressable hitSlop={8} style={styles.followBtn}>
-            <GradientButton label="follow" size="sm" />
+          <Pressable
+            style={styles.authorTap}
+            onPress={() => openProfile(author)}
+            hitSlop={6}
+          >
+            <AvatarRing username={author} size={42} />
+            <View style={styles.authorText}>
+              <Text style={[typography.bodyStrong, styles.authorName]}>@{author}</Text>
+              <Text style={[typography.caption, styles.timestamp]}>
+                {formatRel(item.created_at)}
+              </Text>
+            </View>
+          </Pressable>
+          <Pressable hitSlop={8} style={styles.followBtn} onPress={follow}>
+            <GradientButton label={following ? 'following' : 'follow'} size="sm" />
           </Pressable>
         </View>
         {item.caption ? (
-          <Text style={[typography.body, styles.caption]} numberOfLines={3}>
-            {item.caption}
-          </Text>
+          <Pressable onPress={() => openPost(item.id, item)}>
+            <Text style={[typography.body, styles.caption]} numberOfLines={3}>
+              {item.caption}
+            </Text>
+          </Pressable>
         ) : null}
+        <View style={styles.reelActions}>
+          <Pressable onPress={toggleLike} hitSlop={8} style={styles.reelAction}>
+            <Text style={[typography.bodyStrong, styles.reelActionLabel]}>
+              {liked ? 'liked' : 'like'}
+            </Text>
+          </Pressable>
+          <Pressable onPress={() => openPost(item.id, item)} hitSlop={8} style={styles.reelAction}>
+            <Text style={[typography.bodyStrong, styles.reelActionLabel]}>comment</Text>
+          </Pressable>
+        </View>
         <View style={styles.statRow}>
           <StatRow
             inverted
             items={[
-              { value: item.like_count || 0, label: 'likes' },
+              { value: likes, label: 'likes' },
               { value: item.views || 0, label: 'views' },
             ]}
           />
@@ -200,6 +240,7 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
   },
   author: { flexDirection: 'row', alignItems: 'center' },
+  authorTap: { flex: 1, flexDirection: 'row', alignItems: 'center' },
   authorText: { flex: 1, marginLeft: spacing.md },
   authorName: { color: '#ffffff' },
   timestamp: { color: 'rgba(255,255,255,0.75)', marginTop: 2 },
@@ -208,6 +249,9 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     marginTop: spacing.md,
   },
+  reelActions: { flexDirection: 'row', marginTop: spacing.md },
+  reelAction: { marginRight: spacing.xl },
+  reelActionLabel: { color: '#ffffff', fontSize: 14 },
   statRow: { marginTop: spacing.lg },
   error: {
     position: 'absolute',

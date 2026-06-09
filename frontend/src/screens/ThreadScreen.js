@@ -4,7 +4,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Pressable,
-  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -252,17 +251,7 @@ export default function ThreadScreen({ postId: postIdProp }) {
         </View>
       ) : null}
       <GradientProgress active={loading} />
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        refreshControl={
-          <RefreshControl
-            refreshing={loading}
-            onRefresh={load}
-            tintColor={colors.primary}
-            colors={[colors.primary]}
-          />
-        }
-      >
+      <ScrollView contentContainerStyle={styles.scroll}>
         {tree.map((root) => (
           <CommentNode
             key={root.comment_id}

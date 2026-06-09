@@ -58,6 +58,18 @@ class PostViewSet(viewsets.ModelViewSet):
     serializer_class = PostSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAuthorOrReadOnly]
 
+    def get_queryset(self):
+        # optional ?author=<id|username> filter so a profile can pull just one
+        # user's posts without scanning the whole feed client side.
+        qs = super().get_queryset()
+        author = self.request.query_params.get("author")
+        if author:
+            if author.isdigit():
+                qs = qs.filter(author_id=int(author))
+            else:
+                qs = qs.filter(author__username=author)
+        return qs
+
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
 

@@ -4,6 +4,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,6 +14,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { api } from '../api/client';
+import { useApp } from '../context/AppContext';
 import AvatarRing from '../components/AvatarRing';
 import EmptyState from '../components/EmptyState';
 import GradientPill from '../components/GradientPill';
@@ -47,7 +49,20 @@ function flattenCategories(node, depth = 0, acc = []) {
 }
 
 export default function SearchScreen() {
+  const { openProfile, openHashtag, requireAuth } = useApp();
   const [query, setQuery] = useState('');
+  const [followed, setFollowed] = useState({});
+
+  const follow = async (username) => {
+    if (!requireAuth()) return;
+    setFollowed((m) => ({ ...m, [username]: true }));
+    try {
+      await api.toggleFollow(username);
+    } catch (e) {
+      setFollowed((m) => ({ ...m, [username]: false }));
+    }
+  };
+
   const [users, setUsers] = useState([]);
   const [tags, setTags] = useState([]);
   const [posts, setPosts] = useState([]);
@@ -145,7 +160,7 @@ export default function SearchScreen() {
               <Pressable
                 key={tag.hashtag_id}
                 style={styles.trendingChip}
-                onPress={() => setQuery(`#${tag.hashtag}`)}
+                onPress={() => openHashtag(tag.hashtag)}
               >
                 <GradientText
                   style={[typography.bodyStrong, { fontSize: 13 }]}
@@ -199,17 +214,25 @@ export default function SearchScreen() {
             </Text>
             {users.map((u) => (
               <View key={u.user_id || u.id} style={styles.userRow}>
-                <AvatarRing username={u.username} size={36} />
-                <View style={{ flex: 1, marginLeft: spacing.md }}>
-                  <Text style={[typography.bodyStrong, { color: colors.text }]}>
-                    @{u.username}
-                  </Text>
-                  <Text style={[typography.caption, { color: colors.muted }]}>
-                    user
-                  </Text>
-                </View>
-                <Pressable hitSlop={8} style={styles.followBtn}>
-                  <GradientText style={typography.label}>follow</GradientText>
+                <Pressable
+                  style={styles.userTap}
+                  onPress={() => openProfile(u.username)}
+                  hitSlop={4}
+                >
+                  <AvatarRing username={u.username} size={36} />
+                  <View style={{ flex: 1, marginLeft: spacing.md }}>
+                    <Text style={[typography.bodyStrong, { color: colors.text }]}>
+                      @{u.username}
+                    </Text>
+                    <Text style={[typography.caption, { color: colors.muted }]}>
+                      tap to view profile
+                    </Text>
+                  </View>
+                </Pressable>
+                <Pressable hitSlop={8} style={styles.followBtn} onPress={() => follow(u.username)}>
+                  <GradientText style={typography.label}>
+                    {followed[u.username] ? 'following' : 'follow'}
+                  </GradientText>
                 </Pressable>
               </View>
             ))}
@@ -222,14 +245,18 @@ export default function SearchScreen() {
             </Text>
             <View style={styles.tagWrap}>
               {tags.map((t) => (
-                <View key={t.hashtag} style={styles.tagPill}>
+                <Pressable
+                  key={t.hashtag}
+                  style={styles.tagPill}
+                  onPress={() => openHashtag(t.hashtag)}
+                >
                   <GradientText style={[typography.bodyStrong, { fontSize: 13 }]}>
                     #{t.hashtag}
                   </GradientText>
                   <Text style={[typography.caption, { color: colors.muted, marginLeft: 6 }]}>
                     {t.post_count}
                   </Text>
-                </View>
+                </Pressable>
               ))}
             </View>
           </View>
@@ -266,6 +293,7 @@ export default function SearchScreen() {
 }
 
 function PostTile({ post }) {
+  const { openPost, openProfile } = useApp();
   const seed = post.caption || post.author?.username || `${post.id}`;
   const overlay = (
     <View>
@@ -287,21 +315,30 @@ function PostTile({ post }) {
   );
   return (
     <View style={tileStyles.tile}>
-      <HoverPreview overlay={overlay} radius={radii.lg}>
-        <LinearGradient
-          colors={gradientStops}
-          start={gradientDir.diagonal.start}
-          end={gradientDir.diagonal.end}
-          style={tileStyles.cover}
-        >
-          <Text style={tileStyles.coverGlyph}>
-            {seed.slice(0, 1).toUpperCase()}
-          </Text>
-        </LinearGradient>
-      </HoverPreview>
+      <Pressable onPress={() => openPost(post.id, post)}>
+        <HoverPreview overlay={overlay} radius={radii.lg}>
+          {post.image ? (
+            <Image source={{ uri: post.image }} style={tileStyles.cover} resizeMode="cover" />
+          ) : (
+            <LinearGradient
+              colors={gradientStops}
+              start={gradientDir.diagonal.start}
+              end={gradientDir.diagonal.end}
+              style={tileStyles.cover}
+            >
+              <Text style={tileStyles.coverGlyph}>
+                {seed.slice(0, 1).toUpperCase()}
+              </Text>
+            </LinearGradient>
+          )}
+        </HoverPreview>
+      </Pressable>
       <View style={tileStyles.meta}>
-        <Text style={[typography.bodyStrong, { color: colors.text, fontSize: 13 }]}
-              numberOfLines={1}>
+        <Text
+          style={[typography.bodyStrong, { color: colors.text, fontSize: 13 }]}
+          numberOfLines={1}
+          onPress={() => openProfile(post.author?.username)}
+        >
           @{post.author?.username || 'unknown'}
         </Text>
         <Text style={[typography.body, { color: colors.text, fontSize: 12 }]}
@@ -351,6 +388,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: spacing.sm,
   },
+  userTap: { flex: 1, flexDirection: 'row', alignItems: 'center' },
   followBtn: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,

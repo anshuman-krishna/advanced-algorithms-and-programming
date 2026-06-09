@@ -10,7 +10,7 @@ import { colors, layout } from '../theme';
 
 const isWeb = Platform.OS === 'web';
 
-export default function RootShell({ topBar, children, bottomBar = null }) {
+export default function RootShell({ topBar, children, bottomBar = null, overlay = null }) {
   return (
     <View style={styles.outer}>
       <View style={styles.shell}>
@@ -19,6 +19,11 @@ export default function RootShell({ topBar, children, bottomBar = null }) {
           <View style={styles.body}>{children}</View>
           {bottomBar}
         </SafeAreaView>
+        {overlay ? (
+          <SafeAreaView style={styles.overlay} edges={['top']}>
+            {overlay}
+          </SafeAreaView>
+        ) : null}
       </View>
     </View>
   );
@@ -45,4 +50,5 @@ const styles = StyleSheet.create({
   },
   safe: { flex: 1, backgroundColor: colors.background },
   body: { flex: 1, backgroundColor: colors.background },
+  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'transparent', zIndex: 40 },
 });

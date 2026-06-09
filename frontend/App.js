@@ -51,7 +51,7 @@ const SCREENS = {
   graph: CommunitiesScreen,
 };
 
-function AuthBar({ user, onLogin, onLogout, onRefresh }) {
+function AuthBar({ user, onLogin, onLogout, onRefresh, onProfile }) {
   return (
     <View style={styles.authBar}>
       <GradientText style={[typography.label, styles.brand]}>petgram</GradientText>
@@ -60,9 +60,14 @@ function AuthBar({ user, onLogin, onLogout, onRefresh }) {
           <RefreshGlyph size={18} color={colors.primary} />
         </Pressable>
         {user ? (
-          <Pressable onPress={onLogout} hitSlop={8}>
-            <Text style={styles.authAction}>@{user.username} · log out</Text>
-          </Pressable>
+          <>
+            <Pressable onPress={onProfile} hitSlop={8} style={styles.profileBtn}>
+              <Text style={styles.authAction}>@{user.username}</Text>
+            </Pressable>
+            <Pressable onPress={onLogout} hitSlop={8}>
+              <Text style={[styles.authAction, styles.logoutAction]}>· log out</Text>
+            </Pressable>
+          </>
         ) : (
           <Pressable onPress={onLogin} hitSlop={8}>
             <Text style={styles.authAction}>log in</Text>
@@ -174,7 +179,13 @@ export default function App() {
   const ActiveScreen = SCREENS[tab];
   const topBar = (
     <View>
-      <AuthBar user={user} onLogin={openLogin} onLogout={handleLogout} onRefresh={refresh} />
+      <AuthBar
+        user={user}
+        onLogin={openLogin}
+        onLogout={handleLogout}
+        onRefresh={refresh}
+        onProfile={() => user && openProfile(user.username)}
+      />
       <TabBar tabs={TABS} active={tab} onChange={(t) => goTab(t)} />
     </View>
   );
@@ -213,6 +224,8 @@ const styles = StyleSheet.create({
   },
   authRight: { flexDirection: 'row', alignItems: 'center' },
   refreshBtn: { marginRight: spacing.md, padding: 2 },
+  profileBtn: { marginRight: spacing.xs },
   brand: { color: colors.text, letterSpacing: 0.5 },
   authAction: { ...typography.label, color: colors.primary },
+  logoutAction: { color: colors.muted },
 });

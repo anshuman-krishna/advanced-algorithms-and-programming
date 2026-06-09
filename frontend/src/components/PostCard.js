@@ -123,7 +123,6 @@ export default function PostCard({ post, onComment }) {
           items={[
             { value: count, label: count === 1 ? 'like' : 'likes' },
             { value: post.comment_count || 0, label: 'comments' },
-            { value: post.share_count || 0, label: 'shares' },
           ]}
           size="md"
         />

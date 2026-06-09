@@ -170,7 +170,6 @@ export default function PostDetailModal({ postId, post: seed }) {
             items={[
               { value: likeCount, label: likeCount === 1 ? 'like' : 'likes' },
               { value: post?.comment_count ?? comments.length, label: 'comments' },
-              { value: post?.share_count || 0, label: 'shares' },
             ]}
             size="md"
           />

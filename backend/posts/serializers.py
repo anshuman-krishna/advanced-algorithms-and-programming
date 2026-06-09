@@ -14,7 +14,6 @@ class PostSerializer(serializers.ModelSerializer):
     author = AuthorMiniSerializer(read_only=True)
     like_count = serializers.IntegerField(read_only=True)
     comment_count = serializers.IntegerField(read_only=True)
-    share_count = serializers.SerializerMethodField()
     is_liked = serializers.SerializerMethodField()
     image = serializers.SerializerMethodField()
 
@@ -30,21 +29,13 @@ class PostSerializer(serializers.ModelSerializer):
             "longitude",
             "like_count",
             "comment_count",
-            "share_count",
             "is_liked",
             "created_at",
         )
         read_only_fields = (
             "id", "author", "created_at", "like_count",
-            "comment_count", "share_count", "is_liked",
+            "comment_count", "is_liked",
         )
-
-    def get_share_count(self, obj):
-        # we do not store a shares table, so derive a stable, plausible share
-        # number from the post id and its like count. more likes trends toward
-        # more shares, and the value never changes between requests.
-        likes = obj.like_count
-        return (obj.id * 3 + likes * 2) % 23 + likes // 2
 
     def get_is_liked(self, obj):
         request = self.context.get("request")

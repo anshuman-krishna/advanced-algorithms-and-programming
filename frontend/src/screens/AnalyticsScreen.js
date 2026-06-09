@@ -82,6 +82,20 @@ export default function AnalyticsScreen() {
     return Math.max(1, ...visibleBuckets.map((b) => b.value));
   }, [visibleBuckets]);
 
+  const commentBuckets = useMemo(() => {
+    if (!series || !series.comment_series) return [];
+    const tail = series.comment_series.slice(-60);
+    return tail.map((value, idx) => ({
+      value,
+      offset: series.window_days - tail.length + idx,
+    }));
+  }, [series]);
+
+  const commentPeak = useMemo(() => {
+    if (!commentBuckets.length) return 1;
+    return Math.max(1, ...commentBuckets.map((b) => b.value));
+  }, [commentBuckets]);
+
   return (
     <ScreenContainer>
       <View style={styles.header}>
@@ -89,7 +103,7 @@ export default function AnalyticsScreen() {
           <Text style={[typography.display, { color: colors.text }]}>insights</Text>
           {/* internal: range queries off the lab 8 segment tree */}
           <Text style={[typography.caption, { color: colors.muted }]}>
-            likes over any date range
+            likes and comments over any date range
           </Text>
         </View>
       </View>
@@ -122,15 +136,27 @@ export default function AnalyticsScreen() {
         <OutlineButton label="apply" onPress={load} size="sm" />
       </View>
       <GradientProgress active={loading} />
+      <ScrollView contentContainerStyle={styles.scrollBody}>
       {range ? (
         <View style={styles.summaryWrap}>
           <GradientCardBorder>
             <View style={styles.summary}>
-              <GradientText style={[typography.display, { fontSize: 32 }]}>
-                {range.total_likes}
-              </GradientText>
-              <Text style={[typography.body, { color: colors.text, marginTop: 2 }]}>
-                likes for @{range.username}
+              <View style={styles.summaryNums}>
+                <View style={styles.summaryMetric}>
+                  <GradientText style={[typography.display, { fontSize: 32 }]}>
+                    {range.total_likes}
+                  </GradientText>
+                  <Text style={[typography.caption, { color: colors.muted }]}>likes</Text>
+                </View>
+                <View style={styles.summaryMetric}>
+                  <GradientText style={[typography.display, { fontSize: 32 }]}>
+                    {range.total_comments ?? 0}
+                  </GradientText>
+                  <Text style={[typography.caption, { color: colors.muted }]}>comments</Text>
+                </View>
+              </View>
+              <Text style={[typography.body, { color: colors.text, marginTop: spacing.sm }]}>
+                for @{range.username}
               </Text>
               <Text style={[typography.caption, { color: colors.muted, marginTop: 2 }]}>
                 {range.from} . {range.to} . {range.days} days
@@ -188,7 +214,50 @@ export default function AnalyticsScreen() {
           body="no likes in this date range yet. pick a wider range and reload."
         />
       ) : null}
+      {commentBuckets.length ? (
+        <View style={styles.chartWrap}>
+          <Text style={[typography.label, styles.sectionTitle]}>
+            comments last 60 days
+          </Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.chart}
+          >
+            {commentBuckets.map((b, idx) => {
+              const height = 4 + (b.value / commentPeak) * 110;
+              return (
+                <View key={idx} style={styles.barWrap}>
+                  <LinearGradient
+                    colors={gradientStops}
+                    start={gradientDir.vertical.start}
+                    end={gradientDir.vertical.end}
+                    style={[styles.bar, { height }]}
+                  />
+                  {idx % 7 === 0 ? (
+                    <Text style={styles.barLabel} numberOfLines={1}>
+                      {formatDate(series?.origin, b.offset).slice(5)}
+                    </Text>
+                  ) : (
+                    <Text style={styles.barLabel}> </Text>
+                  )}
+                </View>
+              );
+            })}
+          </ScrollView>
+          <View style={styles.statBar}>
+            <StatRow
+              size="sm"
+              items={[
+                { value: commentBuckets.reduce((s, b) => s + b.value, 0), label: 'shown comments' },
+                { value: commentPeak, label: 'peak day' },
+              ]}
+            />
+          </View>
+        </View>
+      ) : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
+      </ScrollView>
     </ScreenContainer>
   );
 }
@@ -223,12 +292,15 @@ const styles = StyleSheet.create({
     marginRight: spacing.sm,
     flexShrink: 1,
   },
+  scrollBody: { paddingBottom: spacing.xxl },
   summaryWrap: { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
   summary: {
     padding: spacing.lg,
     backgroundColor: colors.background,
     borderRadius: radii.md,
   },
+  summaryNums: { flexDirection: 'row' },
+  summaryMetric: { flex: 1, alignItems: 'flex-start' },
   chartWrap: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,

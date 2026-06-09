@@ -54,6 +54,8 @@ class LikesRangeView(APIView):
             start, end = end, start
         total = services.likes_in_range(user.id, start, end)
         peak = services.peak_day_in_range(user.id, start, end)
+        comments = services.comments_in_range(user.id, start, end)
+        peak_comments = services.peak_comment_day_in_range(user.id, start, end)
         return Response({
             "user_id": user.id,
             "username": user.username,
@@ -62,6 +64,8 @@ class LikesRangeView(APIView):
             "days": (end - start).days + 1,
             "total_likes": int(total),
             "peak_day_likes": int(peak),
+            "total_comments": int(comments),
+            "peak_day_comments": int(peak_comments),
         })
 
 
@@ -77,6 +81,7 @@ class LikesSeriesView(APIView):
     def get(self, request, identifier):
         user = _resolve_user(identifier)
         series = services.daily_series(user.id)
+        comment_series = services.comment_daily_series(user.id)
         meta = services.stats()
         return Response({
             "user_id": user.id,
@@ -84,6 +89,7 @@ class LikesSeriesView(APIView):
             "origin": meta["origin"],
             "window_days": meta["window_days"],
             "series": [int(v) for v in series],
+            "comment_series": [int(v) for v in comment_series],
         })
 
 

@@ -85,7 +85,8 @@ returns matches, weighted by post count for hashtags.
 files: backend/algorithms/trie.py, backend/search/services.py.
 
 Segment Tree (Lab 8) [Fast Analytics]:
-Powers the analytics range queries. one segment tree per user over their like
-history by day lets us answer "likes between these two dates" and "best single
-day" in log time. still reading up on more range query ideas.
+Powers the insights range queries. one segment tree per user over their likes by
+day, plus a second one over comments by day, lets us answer "likes or comments
+between these two dates" and "best single day" in log time. still reading up on
+more range query ideas.
 files: backend/algorithms/segment_tree.py, backend/analytics/services.py.

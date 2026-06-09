@@ -83,8 +83,9 @@ export default function NearbyScreen() {
       <View style={styles.header}>
         <View style={{ flex: 1 }}>
           <Text style={[typography.display, { color: colors.text }]}>nearby</Text>
+          {/* internal: posts located by the lab 7 quadtree */}
           <Text style={[typography.caption, { color: colors.muted }]}>
-            posts located by the lab 7 quadtree
+            posts shared around you
           </Text>
         </View>
         {stats ? <StatRow size="sm" items={[{ value: stats.size, label: 'in tree' }]} /> : null}
@@ -161,7 +162,7 @@ export default function NearbyScreen() {
             <EmptyState
               glyph="g"
               title="no posts in this radius"
-              body="bump the radius up or hit a preset city to populate the quadtree results."
+              body="try a wider radius or pick a city to see posts nearby."
             />
           ) : null
         }

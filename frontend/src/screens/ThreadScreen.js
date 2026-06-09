@@ -196,8 +196,9 @@ export default function ThreadScreen({ postId: postIdProp }) {
     <ScreenContainer>
       <View style={styles.header}>
         <Text style={[typography.display, { color: colors.text }]}>thread</Text>
+        {/* internal: recursive comment tree from lab 4 */}
         <Text style={[typography.caption, { color: colors.muted }]}>
-          recursive comment tree from lab 4
+          every reply, nested in order
         </Text>
       </View>
       <View style={styles.idRow}>
@@ -223,11 +224,12 @@ export default function ThreadScreen({ postId: postIdProp }) {
           />
         </View>
       ) : null}
+      {/* internal: keyword search over the lab 4 ex 1 comment tree */}
       <View style={styles.searchRow}>
         <TextInput
           value={search}
           onChangeText={setSearch}
-          placeholder="keyword search the tree (lab 4 ex 1)"
+          placeholder="search this thread"
           placeholderTextColor={colors.muted}
           style={[styles.input, { flex: 1 }]}
         />
@@ -278,7 +280,7 @@ export default function ThreadScreen({ postId: postIdProp }) {
             title={numericId == null ? 'pick a post' : 'no comments yet'}
             body={
               numericId == null
-                ? 'enter a post id above to load its recursive thread.'
+                ? 'enter a post id above to load its comments.'
                 : 'be the first to add a comment using the box below.'
             }
           />

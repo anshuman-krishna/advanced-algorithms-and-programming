@@ -72,8 +72,9 @@ export default function CommunitiesScreen() {
           <Text style={[typography.display, { color: colors.text }]}>
             communities
           </Text>
+          {/* internal: dfs clusters from lab 6 ex 2, bfs chains from lab 6 ex 3 */}
           <Text style={[typography.caption, { color: colors.muted }]}>
-            dfs clusters from lab 6 ex 2 . bfs chains from lab 6 ex 3
+            circles in your network and how people connect
           </Text>
         </View>
         <OutlineButton label="refresh" onPress={load} size="sm" />
@@ -159,7 +160,7 @@ export default function CommunitiesScreen() {
           <EmptyState
             glyph="d"
             title="no communities yet"
-            body="seed the follow graph and refresh to surface dfs clusters."
+            body="follow a few people and refresh to see circles form."
           />
         ) : null}
       </ScrollView>

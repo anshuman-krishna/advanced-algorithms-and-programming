@@ -36,10 +36,16 @@ python manage.py rebuild_search_index
 python manage.py warm_reels
 ```
 
-after that you have five demo users (alice, bob, carol, dave, eve, all with the password
-password123), a handful of posts, a follow graph, the explore category tree, the inverted
-index hot, the reels doubly linked list warm, and city coordinates on the demo posts so
-the geo quadtree returns real data.
+after that you have twelve demo users (alice, bob, carol, dave, eve, frank, grace, heidi,
+ivan, judy, mallory, niaj, all with the password password123), about twenty posts spread
+across real cities and dates, a deep comment thread, two distinct follow communities, the
+explore category tree, the inverted index hot, the reels list warm, and coordinates on
+every post so the geo map returns real data. seed_demo prints which post id holds the deep
+thread so you can open it on the thread tab.
+
+notifications are generated from those likes, comments, and follows. to materialize them
+for a screenshot, run `python manage.py drain_notifications --max` after seeding, or hit
+the drain button on the notifications tab.
 
 start the server:
 

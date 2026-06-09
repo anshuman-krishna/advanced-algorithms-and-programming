@@ -184,11 +184,12 @@ export default function SearchScreen() {
       ) : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <ScrollView contentContainerStyle={styles.body}>
+        {/* internal: hits the lab 1 inverted index, the lab 8 user trie, and the hashtag trie at once */}
         {!trimmed ? (
           <EmptyState
             glyph="s"
             title="search the network"
-            body="type to ping the lab 1 inverted index, the lab 8 user trie, and the hashtag trie all at once."
+            body="find people, posts, and hashtags as you type."
           />
         ) : null}
         {users.length > 0 ? (
@@ -256,7 +257,7 @@ export default function SearchScreen() {
           <EmptyState
             glyph="!"
             title="no results"
-            body="our inverted index has nothing matching that query yet."
+            body="nothing matches that search yet."
           />
         ) : null}
       </ScrollView>

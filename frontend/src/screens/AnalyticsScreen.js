@@ -87,8 +87,9 @@ export default function AnalyticsScreen() {
       <View style={styles.header}>
         <View style={{ flex: 1 }}>
           <Text style={[typography.display, { color: colors.text }]}>insights</Text>
+          {/* internal: range queries off the lab 8 segment tree */}
           <Text style={[typography.caption, { color: colors.muted }]}>
-            range queries off the lab 8 segment tree
+            likes over any date range
           </Text>
         </View>
       </View>
@@ -184,7 +185,7 @@ export default function AnalyticsScreen() {
         <EmptyState
           glyph="a"
           title="no engagement yet"
-          body="like a few posts authored by this user and reload to populate the segment tree."
+          body="no likes in this date range yet. pick a wider range and reload."
         />
       ) : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}

@@ -39,7 +39,9 @@ export default function TrendingScreen() {
     setError(null);
     try {
       const base = process.env.EXPO_PUBLIC_API_BASE || 'http://127.0.0.1:8000';
-      const res = await fetch(`${base}/api/feed/trending/?k=20`);
+      // wide window so the ranked list stays full even when posts are spread
+      // across the last few weeks rather than the last few hours
+      const res = await fetch(`${base}/api/feed/trending/?k=20&window_hours=720`);
       if (!res.ok) throw new Error(`api ${res.status}`);
       const json = await res.json();
       setItems(json.results || []);
@@ -62,8 +64,9 @@ export default function TrendingScreen() {
     <ScreenContainer>
       <View style={styles.header}>
         <Text style={[typography.display, styles.title]}>trending</Text>
+        {/* internal: ranked by the lab 8 max heap, scored by the lab 3 priority queue */}
         <Text style={[typography.caption, styles.subtitle]}>
-          ranked by the lab 8 max heap, scored by the lab 3 priority queue
+          the posts everyone is on right now
         </Text>
       </View>
       <GradientProgress active={loading} />
@@ -121,7 +124,7 @@ export default function TrendingScreen() {
             <EmptyState
               glyph="t"
               title="no trending posts yet"
-              body="the max heap warms up when posts collect likes. seed some likes and refresh."
+              body="trending fills in as posts collect likes. check back in a bit."
             />
           ) : null
         }

@@ -92,8 +92,9 @@ export default function NotificationsScreen() {
       <View style={styles.header}>
         <View style={{ flex: 1 }}>
           <Text style={[typography.display, styles.title]}>activity</Text>
+          {/* internal: backed by the lab 3 fifo + priority queue */}
           <Text style={[typography.caption, styles.subtitle]}>
-            backed by the lab 3 fifo + priority queue
+            likes, comments, and new followers as they happen
           </Text>
         </View>
         <View style={styles.statBlock}>

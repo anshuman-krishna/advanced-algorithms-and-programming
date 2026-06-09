@@ -1,15 +1,16 @@
 """
-seed a rich demo network so every screen has varied, non repetitive data to
-screenshot. rebuilds the demo users, posts, comments, likes, follows, hashtags,
-category links, and geo coordinates each run.
+seed a rich pet themed demo network so every screen has varied, non repetitive
+data to screenshot. rebuilds the demo users, posts, comments, likes, follows,
+hashtags, category links, and pet photos each run.
 
 usage: python manage.py seed_demo
 
 captions carry real hashtags, so the lab 1 inverted index and the lab 8 hashtag
 trie populate from the post save signal. coordinates are set per post, so the
-lab 7 quadtree hydrates straight from the db. likes and posts are backdated
-across the last few weeks, so the lab 8 segment tree analytics and the recency
-side of the feed score both show a spread instead of one flat day.
+lab 7 quadtree hydrates straight from the db. each post points at a stable cat or
+dog photo that matches the account, so the feed shows real images. likes and posts
+are backdated across the last few weeks, so the lab 8 segment tree analytics and
+the recency side of the feed score both show a spread instead of one flat day.
 """
 
 from datetime import timedelta
@@ -21,123 +22,118 @@ from django.utils import timezone
 from django.utils.text import slugify
 
 from posts.models import Comment, CommentLike, Like, Post
+from posts.pet_images import species_image
 from search.models import Category, PostCategory
 from social.models import Follow
 
 User = get_user_model()
 
 
-# twelve distinct people so the network is not three names in a loop
+# username, email, bio, species. the species decides whether the account gets
+# cat or dog photos so a post never mismatches its caption.
 DEMO_USERS = [
-    ("alice", "alice@example.com", "shutterbug from lisbon"),
-    ("bob", "bob@example.com", "coffee and code"),
-    ("carol", "carol@example.com", "trail runner"),
-    ("dave", "dave@example.com", "synth nerd"),
-    ("eve", "eve@example.com", "graph theory enthusiast"),
-    ("frank", "frank@example.com", "street photographer"),
-    ("grace", "grace@example.com", "on device ml researcher"),
-    ("heidi", "heidi@example.com", "vintage camera collector"),
-    ("ivan", "ivan@example.com", "cyclist and cartographer"),
-    ("judy", "judy@example.com", "live music every weekend"),
-    ("mallory", "mallory@example.com", "keyboard and hardware tinkerer"),
-    ("niaj", "niaj@example.com", "slow traveler, fast eater"),
+    ("alice", "alice@example.com", "cat mom · luna the tuxedo", "cat"),
+    ("bob", "bob@example.com", "dog dad · max the golden", "dog"),
+    ("carol", "carol@example.com", "trail dog · scout the beagle", "dog"),
+    ("dave", "dave@example.com", "cats and synths · mochi the ragdoll", "cat"),
+    ("eve", "eve@example.com", "graphs and a black cat · shadow", "cat"),
+    ("frank", "frank@example.com", "street dog photos · rufus the rescue", "dog"),
+    ("grace", "grace@example.com", "ml researcher · clementine the tabby", "cat"),
+    ("heidi", "heidi@example.com", "vintage cams · willow the calico", "cat"),
+    ("ivan", "ivan@example.com", "cyclist and a corgi · biscuit", "dog"),
+    ("judy", "judy@example.com", "live music and a husky · pepper", "dog"),
+    ("mallory", "mallory@example.com", "keyboards and a kitten · tofu", "cat"),
+    ("niaj", "niaj@example.com", "slow travels with daisy the doodle", "dog"),
 ]
 
-# author, caption, location label, lat, lng, days ago, leaf category, like count.
+# author, caption, location, lat, lng, days ago, leaf category, like count.
 # every city is distinct so the nearby map never stacks two pins on one spot.
 DEMO_POSTS = [
-    ("alice", "first light over the river #lisbon #goldenhour", "Lisbon", 38.7223, -9.1393, 24, "lisbon", 9),
-    ("frank", "thrifted denim head to toe #streetwear #ootd", "Berlin", 52.5200, 13.4050, 22, "streetwear", 5),
-    ("carol", "10k splits looking sharp this morning #running #trail", "Cape Town", -33.9249, 18.4241, 21, "running", 7),
-    ("ivan", "century ride done, legs completely gone #cycling #roadbike", "Amsterdam", 52.3676, 4.9041, 20, "cycling", 6),
-    ("grace", "new notes on attention routing #ai #ml", "Toronto", 43.6532, -79.3832, 19, "ai", 11),
-    ("mallory", "soldering a keyboard pcb at 2am #hardware #mechkeys", "Austin", 30.2672, -97.7431, 18, "hardware", 4),
-    ("bob", "shipped the search refactor today #software #backend", "London", 51.5074, -0.1278, 17, "software", 8),
-    ("dave", "patched a fat bassline tonight #synth #modular", "Oslo", 59.9139, 10.7522, 16, "synth", 5),
-    ("judy", "front row, lights everywhere #live #livemusic", "Tokyo", 35.6762, 139.6503, 15, "live", 7),
-    ("heidi", "1970s rangefinder with mint glass #vintage #filmphotography", "Paris", 48.8566, 2.3522, 14, "vintage", 6),
-    ("niaj", "narrow alleys at dusk #travel #kyoto", "Kyoto", 35.0116, 135.7681, 13, "tokyo", 8),
-    ("alice", "sunset from the long bridge #lisbon #views", "Porto", 41.1579, -8.6291, 12, "lisbon", 10),
-    ("carol", "hill repeats, lungs on fire #running #training", "Nairobi", -1.2921, 36.8219, 11, "running", 5),
-    ("ivan", "coastal loop on perfect tarmac #cycling #gravel", "Barcelona", 41.3851, 2.1734, 10, "cycling", 7),
-    ("grace", "tiny transformer running on device #ai #edge", "Seoul", 37.5665, 126.9780, 9, "ai", 9),
-    ("bob", "flat white and pull requests #coffee #software", "Sydney", -33.8688, 151.2093, 8, "software", 6),
-    ("heidi", "sunday league on a muddy pitch #football #matchday", "Manchester", 53.4808, -2.2426, 7, "football", 4),
-    ("frank", "rooftop golden hour over midtown #streetphotography #goldenhour", "New York", 40.7128, -74.0060, 5, "streetwear", 8),
-    ("dave", "modular patch of the week #synth #eurorack", "Reykjavik", 64.1466, -21.9426, 4, "synth", 6),
-    ("judy", "synthwave night by the harbor #live #synth", "Mumbai", 19.0760, 72.8777, 3, "live", 7),
-    ("niaj", "street food crawl, both hands full #travel #food", "Sao Paulo", -23.5505, -46.6333, 1, "travel", 9),
+    ("alice", "luna found the one sunbeam in the house #catsofinstagram #tuxedocat", "Lisbon", 38.7223, -9.1393, 24, "tabby", 9),
+    ("bob", "max says the ball is non negotiable #dogsofinstagram #goldenretriever", "London", 51.5074, -0.1278, 22, "retriever", 8),
+    ("grace", "clementine supervising the code review #tabbycat #catnap", "Toronto", 43.6532, -79.3832, 21, "tabby", 11),
+    ("carol", "scout did the whole trail and asked for more #beagle #traildog", "Cape Town", -33.9249, 18.4241, 20, "hikes", 7),
+    ("dave", "mochi versus the new modular patch, mochi won #ragdoll #kitten", "Oslo", 59.9139, 10.7522, 19, "ragdoll", 6),
+    ("frank", "rufus on the rooftop at golden hour #rescuedog #streetdog", "New York", 40.7128, -74.0060, 18, "adoptable", 8),
+    ("heidi", "willow claimed the camera bag again #calico #catsofinsta", "Paris", 48.8566, 2.3522, 17, "ragdoll", 6),
+    ("ivan", "biscuit, short legs and a long ride #corgi #bikedog", "Amsterdam", 52.3676, 4.9041, 16, "puppies", 7),
+    ("eve", "shadow doing midnight zoomies, again #blackcat #zoomies", "Berlin", 52.5200, 13.4050, 15, "kittens", 9),
+    ("judy", "pepper sang along at soundcheck #husky #huskytalks", "Tokyo", 35.6762, 139.6503, 14, "husky", 7),
+    ("mallory", "tofu testing every keycap by sitting on it #kitten #catsofinstagram", "Austin", 30.2672, -97.7431, 13, "kittens", 5),
+    ("niaj", "daisy made friends at every street stall #goldendoodle #travelpup", "Sao Paulo", -23.5505, -46.6333, 12, "retriever", 9),
+    ("alice", "bath day for luna, mixed reviews #tuxedocat #bathtime", "Porto", 41.1579, -8.6291, 11, "bathtime", 10),
+    ("carol", "scout post run nap, fully earned #beagle #tiredpup", "Nairobi", -1.2921, 36.8219, 10, "hikes", 5),
+    ("grace", "clementine and the warm laptop, a love story #tabbycat #catlife", "Seoul", 37.5665, 126.9780, 9, "tabby", 9),
+    ("bob", "max at the dog park making the rounds #goldenretriever #dogpark", "Sydney", -33.8688, 151.2093, 8, "retriever", 6),
+    ("frank", "rufus adoption day throwback #adoptdontshop #rescue", "Manchester", 53.4808, -2.2426, 7, "adoptable", 8),
+    ("dave", "mochi loaf achieved peak fluff #ragdoll #catloaf", "Reykjavik", 64.1466, -21.9426, 5, "ragdoll", 7),
+    ("judy", "pepper beach day, sand absolutely everywhere #husky #beachday", "Mumbai", 19.0760, 72.8777, 4, "beachday", 7),
+    ("heidi", "willow got a haircut and is very judgmental about it #calico #groomday", "Kyoto", 35.0116, 135.7681, 3, "haircuts", 6),
+    ("niaj", "daisy is fostering two pups this week #fosterdog #adoptable", "Barcelona", 41.3851, 2.1734, 1, "fosters", 9),
 ]
 
-# leaf category to its parent. travel is a top level node with no parent.
+# leaf category to its parent, mirrors seed_categories so the explore tree lines up
 CATEGORY_PARENT = {
-    "lisbon": "travel",
-    "tokyo": "travel",
-    "travel": None,
-    "running": "sports",
-    "football": "sports",
-    "cycling": "sports",
-    "streetwear": "fashion",
-    "vintage": "fashion",
-    "ai": "tech",
-    "hardware": "tech",
-    "software": "tech",
-    "synth": "music",
-    "live": "music",
+    "kittens": "cats", "tabby": "cats", "ragdoll": "cats",
+    "puppies": "dogs", "retriever": "dogs", "husky": "dogs",
+    "adoptable": "rescue", "fosters": "rescue",
+    "bathtime": "grooming", "haircuts": "grooming",
+    "hikes": "outdoors", "beachday": "outdoors",
 }
 
 # two clear circles with no bridge between them, so dfs surfaces two communities
-# and bfs still finds a chain inside each. mutual pairs, expanded both ways.
+# and bfs still finds a chain inside each. the cat crew and the dog park. mutual
+# pairs, expanded both ways.
 FOLLOW_PAIRS = [
-    # circle one: photo, travel, outdoors
-    ("alice", "frank"), ("alice", "heidi"), ("alice", "eve"),
-    ("frank", "niaj"), ("heidi", "niaj"), ("niaj", "carol"),
-    ("carol", "ivan"), ("carol", "eve"), ("ivan", "frank"),
-    # circle two: tech and music
-    ("bob", "grace"), ("bob", "mallory"), ("grace", "mallory"),
-    ("bob", "dave"), ("dave", "judy"), ("judy", "grace"),
+    # cat crew
+    ("alice", "dave"), ("alice", "eve"), ("alice", "grace"),
+    ("dave", "grace"), ("eve", "heidi"), ("grace", "mallory"), ("heidi", "mallory"),
+    # dog park
+    ("bob", "carol"), ("bob", "frank"), ("bob", "niaj"),
+    ("carol", "ivan"), ("frank", "judy"), ("ivan", "niaj"), ("judy", "niaj"),
 ]
 
 # a deep, branching thread on the first post so the thread screen shows real
 # nesting and depth. (key, author, body, parent key or none).
 DEMO_THREAD = [
-    ("c1", "bob", "welcome to the network, this shot is unreal", None),
-    ("c2", "carol", "the light is doing all the work here", None),
-    ("c3", "alice", "thanks both, golden hour never misses", "c1"),
-    ("c4", "frank", "what lens were you on for this?", "c1"),
-    ("c5", "alice", "35mm, wide open", "c4"),
-    ("c6", "frank", "clean, i might rent that one", "c5"),
-    ("c7", "alice", "do it, you will not regret it", "c6"),
-    ("c8", "grace", "the reflection in the water is perfect", "c2"),
-    ("c9", "heidi", "reminds me of an old kodak frame", "c2"),
-    ("c10", "niaj", "adding lisbon to my list right now", "c2"),
-    ("c11", "bob", "you should, the trams alone are worth it", "c10"),
-    ("c12", "eve", "the composition lands right on the thirds", None),
-    ("c13", "dave", "agreed, the diagonal really leads the eye", "c12"),
-    ("c14", "ivan", "saving this one for inspiration", "c12"),
+    ("c1", "bob", "luna owning that sunbeam, iconic", None),
+    ("c2", "grace", "clementine would fight her for it", None),
+    ("c3", "alice", "she guards that spot like it is a job", "c1"),
+    ("c4", "frank", "what breed is luna, that coat is unreal", "c1"),
+    ("c5", "alice", "tuxedo, full formal wear at all times", "c4"),
+    ("c6", "bob", "max would just lie on top of her", "c5"),
+    ("c7", "alice", "luna would absolutely not allow that", "c6"),
+    ("c8", "heidi", "willow approves of this nap form", "c2"),
+    ("c9", "eve", "shadow says hello from the dark side", "c2"),
+    ("c10", "niaj", "daisy wants to be friends with everyone here", "c2"),
+    ("c11", "dave", "mochi is also a professional sunbather", "c10"),
+    ("c12", "ivan", "biscuit naps exactly like this, legs out", None),
+    ("c13", "mallory", "tofu is taking detailed notes", "c12"),
+    ("c14", "judy", "pepper would just howl at the sunbeam", "c12"),
 ]
 
-# a couple of flat comments on other posts so any post you open has a thread.
+# flat comments on other posts so any post you open has a thread.
 DEMO_FLAT_COMMENTS = [
-    (5, "bob", "on device is the whole game now"),
-    (5, "mallory", "what hardware are you targeting?"),
-    (9, "dave", "which venue was this?"),
-    (9, "frank", "the lighting rig looks incredible"),
-    (14, "carol", "that descent must have been fast"),
-    (18, "alice", "the skyline at this hour is unreal"),
-    (21, "judy", "now i am hungry, thanks"),
+    (2, "alice", "max is the goodest boy, no notes"),
+    (2, "grace", "that face deserves the ball"),
+    (3, "bob", "clementine is so judgmental and i love it"),
+    (8, "carol", "biscuit nation rise up"),
+    (8, "judy", "those legs are everything"),
+    (12, "frank", "daisy is pure joy in dog form"),
+    (16, "niaj", "dog park royalty right there"),
 ]
 
 
 class Command(BaseCommand):
-    help = "seeds a rich, varied demo network for screenshots and demos."
+    help = "seeds a rich, pet themed demo network for screenshots and demos."
 
     @transaction.atomic
     def handle(self, *args, **options):
         now = timezone.now()
 
         users = {}
-        for username, email, bio in DEMO_USERS:
+        species = {}
+        for username, email, bio, kind in DEMO_USERS:
             user, created = User.objects.get_or_create(
                 username=username,
                 defaults={"email": email, "bio": bio},
@@ -145,11 +141,11 @@ class Command(BaseCommand):
             if created:
                 user.set_password("password123")
             else:
-                # keep the bio fresh on a rebuild without touching the password
                 user.email = email
                 user.bio = bio
             user.save()
             users[username] = user
+            species[username] = kind
 
         # rebuild: clear anything these demo users owned so a re run does not
         # stack duplicate posts. deletes cascade to likes, comments, and links,
@@ -160,17 +156,22 @@ class Command(BaseCommand):
 
         categories = self._ensure_categories()
 
+        # per species counter so each post gets the next photo from its pool
+        photo_idx = {"cat": 0, "dog": 0}
         posts = []
         for row in DEMO_POSTS:
             author, caption, location, lat, lng, days_ago, leaf, like_count = row
+            kind = species[author]
             post = Post.objects.create(
                 author=users[author],
                 caption=caption,
                 location=location,
                 latitude=lat,
                 longitude=lng,
+                image_url=species_image(kind, photo_idx[kind]),
             )
-            # backdate so recency and the analytics date buckets are not all today
+            photo_idx[kind] += 1
+
             created = now - timedelta(days=days_ago, hours=(post.id % 12))
             Post.objects.filter(pk=post.pk).update(created_at=created)
             post.created_at = created
@@ -202,7 +203,6 @@ class Command(BaseCommand):
         """make sure every leaf this seed references exists, with its parent.
         idempotent, so it is safe alongside seed_categories in any order."""
         nodes = {}
-        # create parents first
         for leaf, parent in CATEGORY_PARENT.items():
             if parent and parent not in nodes:
                 node, _ = Category.objects.get_or_create(
@@ -229,7 +229,6 @@ class Command(BaseCommand):
                 like, created = Like.objects.get_or_create(user=users[name], post=post)
                 if not created:
                     continue
-                # walk the like back across the days since the post went up
                 offset = max(0, days_ago - 1 - (j * 2) % max(1, days_ago))
                 stamp = now - timedelta(days=offset, hours=(j % 9))
                 Like.objects.filter(pk=like.pk).update(created_at=stamp)
@@ -242,7 +241,6 @@ class Command(BaseCommand):
             nodes[key] = Comment.objects.create(
                 post=post, author=users[author], content=body, parent=parent
             )
-        # spread some comment likes so total_likes aggregation is not all zeros
         comment_likes = {
             "c1": ["alice", "carol", "frank", "grace"],
             "c5": ["frank", "bob", "ivan"],

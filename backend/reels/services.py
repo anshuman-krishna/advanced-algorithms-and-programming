@@ -25,6 +25,7 @@ from django.db.models import Count
 from algorithms.doubly_linked_list import DLLNode, get_reels_list, reset_reels_list
 
 from posts.models import Post
+from posts.pet_images import pet_image_for
 
 
 _hydration_lock = threading.Lock()
@@ -76,7 +77,7 @@ def _post_payload(post_id: int, *, author_id: int, author_username: str,
 
 
 def _payload_from_post(post: Post) -> dict:
-    img = post.image.url if post.image else None
+    img = post.image.url if post.image else (post.image_url or pet_image_for(post.id))
     return _post_payload(
         post_id=post.id,
         author_id=post.author_id,
@@ -108,7 +109,7 @@ def hydrate_from_db(window: int = DEFAULT_WINDOW) -> int:
             author_id=p.author_id,
             author_username=getattr(p.author, "username", ""),
             caption=p.caption,
-            image_url=p.image.url if p.image else None,
+            image_url=p.image.url if p.image else (p.image_url or pet_image_for(p.id)),
             like_count=p._likes,
             created_at=p.created_at,
         )

@@ -104,9 +104,9 @@ ranked where it did.
 ### search and explore (lab 1 inverted index, lab 8 trie, lab 5 generalized tree)
 
 ```
-curl -s "http://127.0.0.1:8000/api/search/posts/?q=lisbon"
+curl -s "http://127.0.0.1:8000/api/search/posts/?q=beach"
 curl -s "http://127.0.0.1:8000/api/search/autocomplete/users/?q=al"
-curl -s "http://127.0.0.1:8000/api/search/autocomplete/hashtags/?q=co"
+curl -s "http://127.0.0.1:8000/api/search/autocomplete/hashtags/?q=cat"
 curl -s "http://127.0.0.1:8000/api/search/hashtags/trending/?limit=10"
 curl -s http://127.0.0.1:8000/api/search/explore/
 ```
@@ -234,7 +234,15 @@ npm run start
 
 scan the qr code with the expo go app, or press w for the web preview. the tabs across
 the top hop between home, reels, trending, search, notifications, thread, nearby, stats,
-and graph. each tab drives the matching api group above.
+and graph. each tab drives the matching api group above. posts and reels show real cat
+and dog photos pulled from the dog.ceo and cataas cdns, so the device needs internet for
+the images to load.
+
+browsing is open, but actions that belong to a person (liking, commenting, following,
+and the notifications tab) need a login. when you try one while logged out a prompt
+appears asking you to log in, rather than throwing an error. use the log in button in the
+top bar, or the prompt, with any account from `testing/credentials.md` (for example alice
+/ password123). after logging in the action works and the screens refetch as that user.
 
 if the phone or simulator cannot reach 127.0.0.1, point expo at your lan ip first:
 

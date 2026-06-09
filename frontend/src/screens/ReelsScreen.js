@@ -6,6 +6,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Dimensions,
   FlatList,
+  Image,
   Pressable,
   RefreshControl,
   StyleSheet,
@@ -117,8 +118,8 @@ export default function ReelsScreen() {
             <View style={{ height: cardHeight }}>
               <EmptyState
                 glyph="r"
-                title="no reels in the queue"
-                body="seed the backend with `python manage.py warm_reels` and pull to refresh."
+                title="no reels yet"
+                body="pull down to refresh and the latest posts will show up here."
               />
             </View>
           ) : null
@@ -132,16 +133,20 @@ export default function ReelsScreen() {
 function ReelCard({ item, height }) {
   return (
     <View style={[styles.card, { height }]}>
-      <LinearGradient
-        colors={['#feda75', '#fa7e1e', '#d62976', '#962fbf']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.background}
-      >
-        <Text style={styles.bgGlyph}>
-          {(item.caption || item.author_username || '?').slice(0, 1).toUpperCase()}
-        </Text>
-      </LinearGradient>
+      {item.image_url ? (
+        <Image source={{ uri: item.image_url }} style={styles.background} resizeMode="cover" />
+      ) : (
+        <LinearGradient
+          colors={['#feda75', '#fa7e1e', '#d62976', '#962fbf']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.background}
+        >
+          <Text style={styles.bgGlyph}>
+            {(item.caption || item.author_username || '?').slice(0, 1).toUpperCase()}
+          </Text>
+        </LinearGradient>
+      )}
       <LinearGradient
         colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.55)', 'rgba(0,0,0,0.85)']}
         start={{ x: 0.5, y: 0 }}

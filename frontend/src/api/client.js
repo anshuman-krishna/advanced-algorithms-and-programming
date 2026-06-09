@@ -9,14 +9,37 @@ export function setToken(value) {
   token = value;
 }
 
+// the app registers a handler here so any auth gated call that comes back 401
+// opens the login prompt instead of surfacing a raw error to the user.
+let onUnauthorized = null;
+export function setUnauthorizedHandler(fn) {
+  onUnauthorized = fn;
+}
+
+// error carrying the http status so callers can tell "needs login" apart from
+// a real failure
+export class ApiError extends Error {
+  constructor(message, status) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+  }
+}
+
 async function request(path, options = {}) {
   const base = process.env.EXPO_PUBLIC_API_BASE || DEFAULT_BASE;
   const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
   if (token) headers.Authorization = `Token ${token}`;
   const res = await fetch(`${base}${path}`, { ...options, headers });
+  if (res.status === 401 || res.status === 403) {
+    // not logged in (or token expired). nudge the app to show the login prompt
+    // and report a friendly message rather than the raw server text.
+    if (onUnauthorized) onUnauthorized();
+    throw new ApiError('please log in to continue', res.status);
+  }
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`api ${res.status}: ${text}`);
+    throw new ApiError(`api ${res.status}: ${text}`, res.status);
   }
   if (res.status === 204) return null;
   return res.json();

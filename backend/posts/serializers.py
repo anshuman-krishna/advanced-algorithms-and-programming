@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
 from .models import Comment, Like, Post
+from .pet_images import pet_image_for
 
 
 class AuthorMiniSerializer(serializers.Serializer):
@@ -14,6 +15,7 @@ class PostSerializer(serializers.ModelSerializer):
     like_count = serializers.IntegerField(read_only=True)
     comment_count = serializers.IntegerField(read_only=True)
     is_liked = serializers.SerializerMethodField()
+    image = serializers.SerializerMethodField()
 
     class Meta:
         model = Post
@@ -38,6 +40,15 @@ class PostSerializer(serializers.ModelSerializer):
             return False
         # ref: lab 1 hash table style membership check, exists() uses a btree index lookup
         return obj.likes.filter(user_id=request.user.id).exists()
+
+    def get_image(self, obj):
+        # an uploaded file wins, then a seeded external url, then a stable pet
+        # photo by id so the card is never a blank square
+        if obj.image:
+            request = self.context.get("request")
+            url = obj.image.url
+            return request.build_absolute_uri(url) if request is not None else url
+        return obj.image_url or pet_image_for(obj.id)
 
 
 class LikeSerializer(serializers.ModelSerializer):

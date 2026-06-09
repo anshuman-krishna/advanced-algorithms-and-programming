@@ -16,6 +16,9 @@ class Post(models.Model):
         related_name="posts",
     )
     image = models.ImageField(upload_to="posts/", null=True, blank=True)
+    # external photo url used when there is no uploaded file. lets the seed point
+    # a post at a stable cat or dog photo without storing the bytes locally.
+    image_url = models.URLField(max_length=500, blank=True, default="")
     caption = models.TextField(blank=True, default="")
     location = models.CharField(max_length=255, blank=True, default="")
     # latitude and longitude reserved for the lab 7 quadtree work in phase 6

@@ -65,6 +65,11 @@ class Command(BaseCommand):
             for name, hid, count in Hashtag.objects.values_list("name", "id", "post_count")
         )
 
+        # rewrite the on-disk snapshot so the next server boot loads this fresh
+        # state instead of fast pathing through a stale pickle from a prior seed
+        from search import persistence
+        persistence.save_all()
+
         self.stdout.write(self.style.SUCCESS(
             f"rebuilt: {idx.num_documents()} docs, {idx.num_terms()} terms, "
             f"{User.objects.count()} users, {Hashtag.objects.count()} hashtags"

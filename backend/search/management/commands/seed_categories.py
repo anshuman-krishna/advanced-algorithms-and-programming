@@ -11,11 +11,11 @@ from search.models import Category
 
 
 TAXONOMY = {
-    "sports": ["football", "running", "cycling"],
-    "fashion": ["streetwear", "vintage"],
-    "tech": ["ai", "hardware", "software"],
-    "music": ["synth", "live"],
-    "travel": ["lisbon", "tokyo"],
+    "cats": ["kittens", "tabby", "ragdoll"],
+    "dogs": ["puppies", "retriever", "husky"],
+    "rescue": ["adoptable", "fosters"],
+    "grooming": ["bathtime", "haircuts"],
+    "outdoors": ["hikes", "beachday"],
 }
 
 
@@ -24,7 +24,9 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         created = 0
+        valid_names = set()
         for parent_name, children in TAXONOMY.items():
+            valid_names.add(parent_name)
             parent, parent_created = Category.objects.get_or_create(
                 name=parent_name,
                 defaults={"slug": slugify(parent_name)},
@@ -32,12 +34,17 @@ class Command(BaseCommand):
             if parent_created:
                 created += 1
             for child_name in children:
+                valid_names.add(child_name)
                 _, child_created = Category.objects.get_or_create(
                     name=child_name,
                     defaults={"slug": slugify(child_name), "parent": parent},
                 )
                 if child_created:
                     created += 1
+        # prune any leftover categories from an earlier taxonomy so explore stays
+        # clean. cascades to their post links, which are empty by now anyway.
+        removed, _ = Category.objects.exclude(name__in=valid_names).delete()
         self.stdout.write(self.style.SUCCESS(
-            f"seeded categories. {created} new rows, {Category.objects.count()} total"
+            f"seeded categories. {created} new rows, {removed} pruned, "
+            f"{Category.objects.count()} total"
         ))
